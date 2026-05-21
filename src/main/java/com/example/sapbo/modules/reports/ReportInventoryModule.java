@@ -8,7 +8,13 @@ import com.crystaldecisions.sdk.occa.infostore.IInfoStore;
 import com.crystaldecisions.sdk.properties.IProperties;
 import com.crystaldecisions.sdk.properties.IProperty;
 import com.example.sapbo.core.ConnectionManager;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -111,6 +117,11 @@ public class ReportInventoryModule {
         }
 
         IProperties properties = report.properties();
+        UniverseReference webiDocPropertiesUniverse = readWebiDocPropertiesUniverse(properties, folderPathResolver);
+        if (!webiDocPropertiesUniverse.isEmpty()) {
+            return webiDocPropertiesUniverse;
+        }
+
         UniverseReference dslUniverse = readUniverseBag(properties, "SI_DSL_UNIVERSE", "UNX");
         if (!dslUniverse.isEmpty()) {
             return dslUniverse;
@@ -122,6 +133,115 @@ public class ReportInventoryModule {
         }
 
         return UniverseReference.freehandSqlOrOther();
+    }
+
+    private UniverseReference readWebiDocPropertiesUniverse(
+            IProperties properties,
+            FolderPathResolver folderPathResolver) throws SDKException {
+        Set<String> dataSourceNames = getWebiDocDataSourceNames(properties);
+        if (dataSourceNames.isEmpty()) {
+            return UniverseReference.empty();
+        }
+
+        Set<String> names = new LinkedHashSet<>();
+        Set<String> cuids = new LinkedHashSet<>();
+        Set<String> types = new LinkedHashSet<>();
+        Set<String> paths = new LinkedHashSet<>();
+
+        for (String dataSourceName : dataSourceNames) {
+            UniverseReference reference = queryUniverseByName(dataSourceName, folderPathResolver);
+            if (reference.isEmpty()) {
+                continue;
+            }
+
+            addCsvValues(names, reference.name);
+            addCsvValues(cuids, reference.cuid);
+            addCsvValues(types, reference.type);
+            addCsvValues(paths, reference.path);
+        }
+
+        if (names.isEmpty() && cuids.isEmpty()) {
+            return UniverseReference.empty();
+        }
+
+        return new UniverseReference(
+                String.join(", ", names),
+                String.join(", ", types),
+                String.join(", ", cuids),
+                String.join(", ", paths));
+    }
+
+    private Set<String> getWebiDocDataSourceNames(IProperties properties) {
+        Set<String> dataSourceNames = new LinkedHashSet<>();
+
+        for (Object keyObject : properties.keySet()) {
+            String propertyValue = safeGetString(properties, keyObject);
+            if (!propertyValue.contains("<WEBI_DOC_PROPS")) {
+                continue;
+            }
+
+            dataSourceNames.addAll(parseWebiDocDataSourceNames(propertyValue));
+        }
+
+        return dataSourceNames;
+    }
+
+    private Set<String> parseWebiDocDataSourceNames(String xml) {
+        Set<String> dataSourceNames = new LinkedHashSet<>();
+
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setExpandEntityReferences(false);
+
+            Document document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+            NodeList dataProviders = document.getElementsByTagName("WEBI_DP");
+
+            for (int index = 0; index < dataProviders.getLength(); index++) {
+                Element dataProvider = (Element) dataProviders.item(index);
+                String dataSourceName = dataProvider.getAttribute("DSNAME");
+                if (dataSourceName != null && !dataSourceName.trim().isEmpty()) {
+                    dataSourceNames.add(dataSourceName.trim());
+                }
+            }
+        } catch (Exception exception) {
+            return Collections.emptySet();
+        }
+
+        return dataSourceNames;
+    }
+
+    private UniverseReference queryUniverseByName(String universeName, FolderPathResolver folderPathResolver)
+            throws SDKException {
+        String escapedUniverseName = universeName.replace("'", "''");
+        String query = "SELECT TOP 100 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
+                + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
+                + "WHERE SI_NAME = '" + escapedUniverseName + "' "
+                + "AND (SI_KIND = 'Universe' OR SI_KIND = 'DSL.MetaDataFile')";
+        IInfoObjects universes = folderPathResolver.infoStore.query(query);
+
+        if (universes.size() == 0) {
+            return UniverseReference.empty();
+        }
+
+        Set<String> names = new LinkedHashSet<>();
+        Set<String> cuids = new LinkedHashSet<>();
+        Set<String> types = new LinkedHashSet<>();
+        Set<String> paths = new LinkedHashSet<>();
+
+        for (Object universeObject : universes) {
+            IInfoObject universe = (IInfoObject) universeObject;
+            names.add(universe.getTitle());
+            cuids.add(universe.getCUID());
+            types.add(getUniverseType(universe, ""));
+            paths.add(folderPathResolver.resolve(universe.properties().getInt("SI_PARENTID")));
+        }
+
+        return new UniverseReference(
+                String.join(", ", names),
+                String.join(", ", types),
+                String.join(", ", cuids),
+                String.join(", ", paths));
     }
 
     private UniverseReference readUniverseRelationships(IInfoObject report, FolderPathResolver folderPathResolver)
@@ -257,6 +377,28 @@ public class ReportInventoryModule {
         return properties.getProperties(propertyName);
     }
 
+    private String safeGetString(IProperties properties, Object keyObject) {
+        try {
+            return properties.getString(String.valueOf(keyObject));
+        } catch (RuntimeException exception) {
+            return "";
+        }
+    }
+
+    private static void addCsvValues(Set<String> values, String csvValues) {
+        if (csvValues == null || csvValues.trim().isEmpty()) {
+            return;
+        }
+
+        String[] splitValues = csvValues.split(",");
+        for (String splitValue : splitValues) {
+            String value = splitValue.trim();
+            if (!value.isEmpty()) {
+                values.add(value);
+            }
+        }
+    }
+
     private static final class UniverseReference {
         private final String name;
         private final String type;
@@ -301,17 +443,7 @@ public class ReportInventoryModule {
         }
 
         private static void addValues(Set<String> values, String csvValues) {
-            if (csvValues == null || csvValues.trim().isEmpty()) {
-                return;
-            }
-
-            String[] splitValues = csvValues.split(",");
-            for (String splitValue : splitValues) {
-                String value = splitValue.trim();
-                if (!value.isEmpty()) {
-                    values.add(value);
-                }
-            }
+            addCsvValues(values, csvValues);
         }
 
         private boolean isEmpty() {

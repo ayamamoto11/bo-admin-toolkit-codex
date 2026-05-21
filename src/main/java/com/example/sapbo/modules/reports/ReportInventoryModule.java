@@ -127,9 +127,11 @@ public class ReportInventoryModule {
     private UniverseReference readUniverseRelationships(IInfoObject report, FolderPathResolver folderPathResolver)
             throws SDKException {
         UniverseReference universeReference =
-                safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Webi-Universe", "UNV");
+                safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Webi-Universe", "UNV", true);
         UniverseReference dslUniverseReference =
-                safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Webi-DSLUniverse", "UNX");
+                UniverseReference.merge(
+                        safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Webi-DSLUniverse", "UNX", true),
+                        safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Unx-To-Webi", "UNX", false));
 
         return UniverseReference.merge(universeReference, dslUniverseReference);
     }
@@ -138,9 +140,10 @@ public class ReportInventoryModule {
             int reportId,
             FolderPathResolver folderPathResolver,
             String relationName,
-            String universeType) throws SDKException {
+            String universeType,
+            boolean childRelation) throws SDKException {
         try {
-            return queryRelatedUniverses(reportId, folderPathResolver, relationName, universeType);
+            return queryRelatedUniverses(reportId, folderPathResolver, relationName, universeType, childRelation);
         } catch (SDKException exception) {
             return UniverseReference.empty();
         }
@@ -150,10 +153,12 @@ public class ReportInventoryModule {
             int reportId,
             FolderPathResolver folderPathResolver,
             String relationName,
-            String universeType) throws SDKException {
+            String universeType,
+            boolean childRelation) throws SDKException {
+        String relationshipFunction = childRelation ? "CHILDREN" : "PARENTS";
         String query = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
                 + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
-                + "WHERE CHILDREN(\"SI_NAME='" + relationName + "'\", \"SI_ID=" + reportId + "\")";
+                + "WHERE " + relationshipFunction + "(\"SI_NAME='" + relationName + "'\", \"SI_ID=" + reportId + "\")";
         IInfoObjects universes = folderPathResolver.infoStore.query(query);
 
         if (universes.size() == 0) {
@@ -182,11 +187,14 @@ public class ReportInventoryModule {
 
     private String getUniverseType(IInfoObject universe, String defaultType) throws SDKException {
         String kind = universe.getKind();
+        if (kind != null && kind.equalsIgnoreCase("DSL.MetaDataFile")) {
+            return "UNX";
+        }
         if (kind != null && kind.toLowerCase().contains("dsl")) {
             return "UNX";
         }
-        if (kind != null && kind.toLowerCase().contains("universe")) {
-            return defaultType;
+        if (kind != null && kind.equalsIgnoreCase("Universe")) {
+            return "UNV";
         }
 
         return defaultType;
@@ -332,7 +340,7 @@ public class ReportInventoryModule {
             }
 
             IInfoObjects folders = infoStore.query("SELECT SI_NAME, SI_ID, SI_PARENTID "
-                    + "FROM CI_INFOOBJECTS WHERE SI_ID = " + folderId);
+                    + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS WHERE SI_ID = " + folderId);
             if (folders.size() == 0) {
                 pathCache.put(folderId, "");
                 return "";

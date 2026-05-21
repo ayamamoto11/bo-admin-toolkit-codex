@@ -1,0 +1,9 @@
+# Copy this file to src/main/resources/boe.properties for local development,
+# or place boe.properties on the runtime classpath.
+#
+# Do not commit real credentials.
+
+boe.cms=localhost:6400
+boe.username=
+boe.password=
+boe.authentication=secEnterprise

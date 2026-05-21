@@ -1,0 +1,5 @@
+target/
+*.class
+
+# Keep local SAP BOE credentials out of source control.
+src/main/resources/boe.properties

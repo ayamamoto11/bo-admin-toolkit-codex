@@ -41,7 +41,11 @@ public class ReportDebugModule {
         List<ReportDebugResult.DebugRow> properties = new ArrayList<>();
         flattenProperties("", report.properties(), properties, 0);
 
+        List<ReportDebugResult.RelationshipResult> dataSourceResults = queryWebiDocDataSources(
+                infoStore,
+                report.properties());
         List<ReportDebugResult.RelationshipResult> relationshipResults = new ArrayList<>();
+        relationshipResults.addAll(dataSourceResults);
         for (String relationshipName : RELATIONSHIP_NAMES) {
             relationshipResults.add(queryRelationship(infoStore, reportId, relationshipName, true));
             relationshipResults.add(queryRelationship(infoStore, reportId, relationshipName, false));
@@ -54,6 +58,69 @@ public class ReportDebugModule {
                 report.getKind(),
                 properties,
                 relationshipResults);
+    }
+
+    private List<ReportDebugResult.RelationshipResult> queryWebiDocDataSources(
+            IInfoStore infoStore,
+            IProperties properties) {
+        List<ReportDebugResult.RelationshipResult> results = new ArrayList<>();
+
+        for (Object keyObject : properties.keySet()) {
+            String propertyValue = safeString(properties, keyObject);
+            int searchStart = 0;
+            while (searchStart >= 0) {
+                int dataSourceIndex = propertyValue.indexOf("DSNAME=\"", searchStart);
+                if (dataSourceIndex < 0) {
+                    break;
+                }
+
+                int valueStart = dataSourceIndex + "DSNAME=\"".length();
+                int valueEnd = propertyValue.indexOf("\"", valueStart);
+                if (valueEnd < 0) {
+                    break;
+                }
+
+                String dataSourceName = propertyValue.substring(valueStart, valueEnd);
+                results.add(queryDataSourceName(infoStore, dataSourceName));
+                searchStart = valueEnd + 1;
+            }
+        }
+
+        return results;
+    }
+
+    private ReportDebugResult.RelationshipResult queryDataSourceName(IInfoStore infoStore, String dataSourceName) {
+        String escapedDataSourceName = dataSourceName.replace("'", "''");
+        String query = "SELECT TOP 100 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
+                + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
+                + "WHERE SI_NAME = '" + escapedDataSourceName + "' AND SI_KIND != 'Webi'";
+
+        try {
+            IInfoObjects objects = infoStore.query(query);
+            List<ReportDebugResult.DebugRow> rows = new ArrayList<>();
+            for (Object object : objects) {
+                IInfoObject infoObject = (IInfoObject) object;
+                rows.add(new ReportDebugResult.DebugRow(
+                        String.valueOf(infoObject.getID()),
+                        infoObject.getTitle(),
+                        infoObject.getKind(),
+                        infoObject.getCUID()));
+            }
+
+            return new ReportDebugResult.RelationshipResult(
+                    dataSourceName,
+                    "DSNAME_LOOKUP",
+                    query,
+                    rows,
+                    "");
+        } catch (SDKException exception) {
+            return new ReportDebugResult.RelationshipResult(
+                    dataSourceName,
+                    "DSNAME_LOOKUP",
+                    query,
+                    new ArrayList<>(),
+                    exception.getMessage());
+        }
     }
 
     private ReportDebugResult.RelationshipResult queryRelationship(

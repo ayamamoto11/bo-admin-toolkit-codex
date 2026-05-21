@@ -87,7 +87,7 @@ public class ReportInventoryModule {
             throws SDKException {
         IProperties properties = report.properties();
         int parentFolderId = getIntProperty(properties, "SI_PARENTID");
-        UniverseReference universeReference = getUniverseReference(report, folderPathResolver.infoStore);
+        UniverseReference universeReference = getUniverseReference(report, folderPathResolver);
 
         return new ReportInventoryRecord(
                 report.getTitle(),
@@ -96,13 +96,16 @@ public class ReportInventoryModule {
                 getIntProperty(properties, "SI_OWNERID"),
                 parentFolderId,
                 folderPathResolver.resolve(parentFolderId),
+                universeReference.getDataProviderType(),
                 universeReference.name,
                 universeReference.type,
-                universeReference.cuid);
+                universeReference.cuid,
+                universeReference.path);
     }
 
-    private UniverseReference getUniverseReference(IInfoObject report, IInfoStore infoStore) throws SDKException {
-        UniverseReference relationshipUniverse = readUniverseRelationships(report, infoStore);
+    private UniverseReference getUniverseReference(IInfoObject report, FolderPathResolver folderPathResolver)
+            throws SDKException {
+        UniverseReference relationshipUniverse = readUniverseRelationships(report, folderPathResolver);
         if (!relationshipUniverse.isEmpty()) {
             return relationshipUniverse;
         }
@@ -113,25 +116,31 @@ public class ReportInventoryModule {
             return dslUniverse;
         }
 
-        return readUniverseBag(properties, "SI_UNIVERSE", "UNV");
+        UniverseReference universe = readUniverseBag(properties, "SI_UNIVERSE", "UNV");
+        if (!universe.isEmpty()) {
+            return universe;
+        }
+
+        return UniverseReference.freehandSqlOrOther();
     }
 
-    private UniverseReference readUniverseRelationships(IInfoObject report, IInfoStore infoStore) throws SDKException {
+    private UniverseReference readUniverseRelationships(IInfoObject report, FolderPathResolver folderPathResolver)
+            throws SDKException {
         UniverseReference universeReference =
-                safeQueryRelatedUniverses(report.getID(), infoStore, "Webi-Universe", "UNV");
+                safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Webi-Universe", "UNV");
         UniverseReference dslUniverseReference =
-                safeQueryRelatedUniverses(report.getID(), infoStore, "Webi-DSLUniverse", "UNX");
+                safeQueryRelatedUniverses(report.getID(), folderPathResolver, "Webi-DSLUniverse", "UNX");
 
         return UniverseReference.merge(universeReference, dslUniverseReference);
     }
 
     private UniverseReference safeQueryRelatedUniverses(
             int reportId,
-            IInfoStore infoStore,
+            FolderPathResolver folderPathResolver,
             String relationName,
             String universeType) throws SDKException {
         try {
-            return queryRelatedUniverses(reportId, infoStore, relationName, universeType);
+            return queryRelatedUniverses(reportId, folderPathResolver, relationName, universeType);
         } catch (SDKException exception) {
             return UniverseReference.empty();
         }
@@ -139,13 +148,13 @@ public class ReportInventoryModule {
 
     private UniverseReference queryRelatedUniverses(
             int reportId,
-            IInfoStore infoStore,
+            FolderPathResolver folderPathResolver,
             String relationName,
             String universeType) throws SDKException {
-        String query = "SELECT SI_ID, SI_NAME, SI_CUID, SI_KIND "
+        String query = "SELECT SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
                 + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
                 + "WHERE CHILDREN(\"SI_NAME='" + relationName + "'\", \"SI_ID=" + reportId + "\")";
-        IInfoObjects universes = infoStore.query(query);
+        IInfoObjects universes = folderPathResolver.infoStore.query(query);
 
         if (universes.size() == 0) {
             return UniverseReference.empty();
@@ -154,18 +163,21 @@ public class ReportInventoryModule {
         Set<String> names = new LinkedHashSet<>();
         Set<String> cuids = new LinkedHashSet<>();
         Set<String> types = new LinkedHashSet<>();
+        Set<String> paths = new LinkedHashSet<>();
 
         for (Object universeObject : universes) {
             IInfoObject universe = (IInfoObject) universeObject;
             names.add(universe.getTitle());
             cuids.add(universe.getCUID());
             types.add(getUniverseType(universe, universeType));
+            paths.add(folderPathResolver.resolve(universe.properties().getInt("SI_PARENTID")));
         }
 
         return new UniverseReference(
                 String.join(", ", names),
                 String.join(", ", types),
-                String.join(", ", cuids));
+                String.join(", ", cuids),
+                String.join(", ", paths));
     }
 
     private String getUniverseType(IInfoObject universe, String defaultType) throws SDKException {
@@ -193,7 +205,8 @@ public class ReportInventoryModule {
         return new UniverseReference(
                 String.join(", ", names),
                 names.isEmpty() ? "" : universeType,
-                String.join(", ", cuids));
+                String.join(", ", cuids),
+                "");
     }
 
     private void collectUniverseValues(IProperties properties, Set<String> names, Set<String> cuids) {
@@ -240,15 +253,21 @@ public class ReportInventoryModule {
         private final String name;
         private final String type;
         private final String cuid;
+        private final String path;
 
-        private UniverseReference(String name, String type, String cuid) {
+        private UniverseReference(String name, String type, String cuid, String path) {
             this.name = name;
             this.type = type;
             this.cuid = cuid;
+            this.path = path;
         }
 
         private static UniverseReference empty() {
-            return new UniverseReference("", "", "");
+            return new UniverseReference("", "", "", "");
+        }
+
+        private static UniverseReference freehandSqlOrOther() {
+            return new UniverseReference("", "", "", "");
         }
 
         private static UniverseReference merge(UniverseReference first, UniverseReference second) {
@@ -262,7 +281,8 @@ public class ReportInventoryModule {
             return new UniverseReference(
                     joinValues(first.name, second.name),
                     joinValues(first.type, second.type),
-                    joinValues(first.cuid, second.cuid));
+                    joinValues(first.cuid, second.cuid),
+                    joinValues(first.path, second.path));
         }
 
         private static String joinValues(String first, String second) {
@@ -288,6 +308,10 @@ public class ReportInventoryModule {
 
         private boolean isEmpty() {
             return name.isEmpty() && cuid.isEmpty();
+        }
+
+        private String getDataProviderType() {
+            return isEmpty() ? "Freehand SQL / Other" : "Universe";
         }
     }
 

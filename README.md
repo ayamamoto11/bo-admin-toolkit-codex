@@ -48,6 +48,8 @@ mvn clean package
 
 Deploy the generated WAR from `target/bo-admin-utils-1.0.0-SNAPSHOT.war` to a servlet container such as Tomcat 9.
 
+The project compiles for Java 8 bytecode so it can run on Tomcat instances that are still using Java 8.
+
 ## Output
 
 The report inventory includes:

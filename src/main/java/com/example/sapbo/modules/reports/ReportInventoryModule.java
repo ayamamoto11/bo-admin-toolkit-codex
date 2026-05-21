@@ -71,7 +71,7 @@ public class ReportInventoryModule {
                 "CUID",
                 "Owner ID",
                 "Parent ID");
-        System.out.println("-".repeat(115));
+        System.out.println(repeat("-", 115));
     }
 
     private void printReport(ReportInventoryRecord report) {
@@ -147,6 +147,15 @@ public class ReportInventoryModule {
 
     private int getIntProperty(IProperties properties, String propertyName) {
         return properties.getInt(propertyName);
+    }
+
+    private String repeat(String value, int count) {
+        StringBuilder repeatedValue = new StringBuilder(value.length() * count);
+        for (int index = 0; index < count; index++) {
+            repeatedValue.append(value);
+        }
+
+        return repeatedValue.toString();
     }
 
     private IProperties getProperties(IProperties properties, Object propertyName) {

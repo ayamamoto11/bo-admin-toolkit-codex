@@ -40,9 +40,11 @@
                         <th>Owner ID</th>
                         <th>Parent Folder ID</th>
                         <th>Folder Path</th>
+                        <th>Data Provider Type</th>
                         <th>Universe</th>
                         <th>Universe Type</th>
                         <th>Universe CUID</th>
+                        <th>Universe Path</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -54,9 +56,11 @@
                             <td><%= report.getOwnerId() %></td>
                             <td><%= report.getParentFolderId() %></td>
                             <td><%= HtmlEscaper.escape(report.getFolderPath()) %></td>
+                            <td><%= HtmlEscaper.escape(report.getDataProviderType()) %></td>
                             <td><%= HtmlEscaper.escape(report.getUniverseName()) %></td>
                             <td><%= HtmlEscaper.escape(report.getUniverseType()) %></td>
                             <td><%= HtmlEscaper.escape(report.getUniverseCuid()) %></td>
+                            <td><%= HtmlEscaper.escape(report.getUniversePath()) %></td>
                         </tr>
                     <% } %>
                     </tbody>

@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class ReportInventoryModule {
-    private static final String REPORT_QUERY = "SELECT SI_NAME, SI_ID, SI_CUID, SI_OWNERID, SI_PARENTID, "
+    private static final String REPORT_QUERY = "SELECT TOP 100000 SI_NAME, SI_ID, SI_CUID, SI_OWNERID, SI_PARENTID, "
             + "SI_PATH, SI_UNIVERSE, SI_DSL_UNIVERSE "
             + "FROM CI_INFOOBJECTS "
             + "WHERE SI_KIND = 'Webi' "
@@ -151,7 +151,7 @@ public class ReportInventoryModule {
             FolderPathResolver folderPathResolver,
             String relationName,
             String universeType) throws SDKException {
-        String query = "SELECT SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
+        String query = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
                 + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
                 + "WHERE CHILDREN(\"SI_NAME='" + relationName + "'\", \"SI_ID=" + reportId + "\")";
         IInfoObjects universes = folderPathResolver.infoStore.query(query);

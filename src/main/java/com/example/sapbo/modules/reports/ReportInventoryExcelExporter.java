@@ -20,9 +20,11 @@ public class ReportInventoryExcelExporter {
             "Owner ID",
             "Parent Folder ID",
             "Folder Path",
+            "Data Provider Type",
             "Universe",
             "Universe Type",
-            "Universe CUID"
+            "Universe CUID",
+            "Universe Path"
     };
 
     public void export(List<ReportInventoryRecord> records, OutputStream outputStream) throws IOException {
@@ -46,9 +48,11 @@ public class ReportInventoryExcelExporter {
                 row.createCell(3).setCellValue(record.getOwnerId());
                 row.createCell(4).setCellValue(record.getParentFolderId());
                 row.createCell(5).setCellValue(record.getFolderPath());
-                row.createCell(6).setCellValue(record.getUniverseName());
-                row.createCell(7).setCellValue(record.getUniverseType());
-                row.createCell(8).setCellValue(record.getUniverseCuid());
+                row.createCell(6).setCellValue(record.getDataProviderType());
+                row.createCell(7).setCellValue(record.getUniverseName());
+                row.createCell(8).setCellValue(record.getUniverseType());
+                row.createCell(9).setCellValue(record.getUniverseCuid());
+                row.createCell(10).setCellValue(record.getUniversePath());
             }
 
             for (int column = 0; column < HEADERS.length; column++) {

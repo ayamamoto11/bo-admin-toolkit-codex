@@ -87,7 +87,7 @@ public class ReportInventoryModule {
             throws SDKException {
         IProperties properties = report.properties();
         int parentFolderId = getIntProperty(properties, "SI_PARENTID");
-        UniverseReference universeReference = getUniverseReference(properties);
+        UniverseReference universeReference = getUniverseReference(report, folderPathResolver.infoStore);
 
         return new ReportInventoryRecord(
                 report.getTitle(),
@@ -101,13 +101,83 @@ public class ReportInventoryModule {
                 universeReference.cuid);
     }
 
-    private UniverseReference getUniverseReference(IProperties properties) {
+    private UniverseReference getUniverseReference(IInfoObject report, IInfoStore infoStore) throws SDKException {
+        UniverseReference relationshipUniverse = readUniverseRelationships(report, infoStore);
+        if (!relationshipUniverse.isEmpty()) {
+            return relationshipUniverse;
+        }
+
+        IProperties properties = report.properties();
         UniverseReference dslUniverse = readUniverseBag(properties, "SI_DSL_UNIVERSE", "UNX");
         if (!dslUniverse.isEmpty()) {
             return dslUniverse;
         }
 
         return readUniverseBag(properties, "SI_UNIVERSE", "UNV");
+    }
+
+    private UniverseReference readUniverseRelationships(IInfoObject report, IInfoStore infoStore) throws SDKException {
+        UniverseReference universeReference =
+                safeQueryRelatedUniverses(report.getID(), infoStore, "Webi-Universe", "UNV");
+        UniverseReference dslUniverseReference =
+                safeQueryRelatedUniverses(report.getID(), infoStore, "Webi-DSLUniverse", "UNX");
+
+        return UniverseReference.merge(universeReference, dslUniverseReference);
+    }
+
+    private UniverseReference safeQueryRelatedUniverses(
+            int reportId,
+            IInfoStore infoStore,
+            String relationName,
+            String universeType) throws SDKException {
+        try {
+            return queryRelatedUniverses(reportId, infoStore, relationName, universeType);
+        } catch (SDKException exception) {
+            return UniverseReference.empty();
+        }
+    }
+
+    private UniverseReference queryRelatedUniverses(
+            int reportId,
+            IInfoStore infoStore,
+            String relationName,
+            String universeType) throws SDKException {
+        String query = "SELECT SI_ID, SI_NAME, SI_CUID, SI_KIND "
+                + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
+                + "WHERE CHILDREN(\"SI_NAME='" + relationName + "'\", \"SI_ID=" + reportId + "\")";
+        IInfoObjects universes = infoStore.query(query);
+
+        if (universes.size() == 0) {
+            return UniverseReference.empty();
+        }
+
+        Set<String> names = new LinkedHashSet<>();
+        Set<String> cuids = new LinkedHashSet<>();
+        Set<String> types = new LinkedHashSet<>();
+
+        for (Object universeObject : universes) {
+            IInfoObject universe = (IInfoObject) universeObject;
+            names.add(universe.getTitle());
+            cuids.add(universe.getCUID());
+            types.add(getUniverseType(universe, universeType));
+        }
+
+        return new UniverseReference(
+                String.join(", ", names),
+                String.join(", ", types),
+                String.join(", ", cuids));
+    }
+
+    private String getUniverseType(IInfoObject universe, String defaultType) {
+        String kind = universe.getKind();
+        if (kind != null && kind.toLowerCase().contains("dsl")) {
+            return "UNX";
+        }
+        if (kind != null && kind.toLowerCase().contains("universe")) {
+            return defaultType;
+        }
+
+        return defaultType;
     }
 
     private UniverseReference readUniverseBag(IProperties properties, String propertyName, String universeType) {
@@ -179,6 +249,41 @@ public class ReportInventoryModule {
 
         private static UniverseReference empty() {
             return new UniverseReference("", "", "");
+        }
+
+        private static UniverseReference merge(UniverseReference first, UniverseReference second) {
+            if (first.isEmpty()) {
+                return second;
+            }
+            if (second.isEmpty()) {
+                return first;
+            }
+
+            return new UniverseReference(
+                    joinValues(first.name, second.name),
+                    joinValues(first.type, second.type),
+                    joinValues(first.cuid, second.cuid));
+        }
+
+        private static String joinValues(String first, String second) {
+            Set<String> values = new LinkedHashSet<>();
+            addValues(values, first);
+            addValues(values, second);
+            return String.join(", ", values);
+        }
+
+        private static void addValues(Set<String> values, String csvValues) {
+            if (csvValues == null || csvValues.trim().isEmpty()) {
+                return;
+            }
+
+            String[] splitValues = csvValues.split(",");
+            for (String splitValue : splitValues) {
+                String value = splitValue.trim();
+                if (!value.isEmpty()) {
+                    values.add(value);
+                }
+            }
         }
 
         private boolean isEmpty() {

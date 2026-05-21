@@ -12,7 +12,7 @@
     <description>JSP administration utilities for SAP BusinessObjects 4.3 SP4.</description>
 
     <properties>
-        <maven.compiler.release>11</maven.compiler.release>
+        <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <failOnMissingWebXml>false</failOnMissingWebXml>
         <boe.sdk.lib>C:/Software/Bojarslib</boe.sdk.lib>

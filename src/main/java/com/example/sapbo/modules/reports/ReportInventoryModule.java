@@ -168,7 +168,7 @@ public class ReportInventoryModule {
                 String.join(", ", cuids));
     }
 
-    private String getUniverseType(IInfoObject universe, String defaultType) {
+    private String getUniverseType(IInfoObject universe, String defaultType) throws SDKException {
         String kind = universe.getKind();
         if (kind != null && kind.toLowerCase().contains("dsl")) {
             return "UNX";

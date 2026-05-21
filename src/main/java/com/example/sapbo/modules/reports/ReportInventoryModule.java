@@ -217,7 +217,7 @@ public class ReportInventoryModule {
         String query = "SELECT TOP 100 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
                 + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
                 + "WHERE SI_NAME = '" + escapedUniverseName + "' "
-                + "AND (SI_KIND = 'Universe' OR SI_KIND = 'DSL.MetaDataFile')";
+                + "AND SI_KIND != 'Webi'";
         IInfoObjects universes = folderPathResolver.infoStore.query(query);
 
         if (universes.size() == 0) {

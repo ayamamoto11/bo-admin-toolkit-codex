@@ -120,19 +120,19 @@ public class ReportInventoryModule {
         }
 
         IProperties properties = report.properties();
-        UniverseReference webiDocPropertiesUniverse = readWebiDocPropertiesUniverse(properties, folderPathResolver);
-        if (!webiDocPropertiesUniverse.isEmpty()) {
-            return webiDocPropertiesUniverse;
-        }
-
-        UniverseReference dslUniverse = readUniverseBag(properties, "SI_DSL_UNIVERSE", "UNX");
+        UniverseReference dslUniverse = readUniverseBag(properties, "SI_DSL_UNIVERSE", "UNX", folderPathResolver);
         if (!dslUniverse.isEmpty()) {
             return dslUniverse;
         }
 
-        UniverseReference universe = readUniverseBag(properties, "SI_UNIVERSE", "UNV");
+        UniverseReference universe = readUniverseBag(properties, "SI_UNIVERSE", "UNV", folderPathResolver);
         if (!universe.isEmpty()) {
             return universe;
+        }
+
+        UniverseReference webiDocPropertiesUniverse = readWebiDocPropertiesUniverse(properties, folderPathResolver);
+        if (!webiDocPropertiesUniverse.isEmpty()) {
+            return webiDocPropertiesUniverse;
         }
 
         return UniverseReference.freehandSqlOrOther();
@@ -332,7 +332,11 @@ public class ReportInventoryModule {
         return defaultType;
     }
 
-    private UniverseReference readUniverseBag(IProperties properties, String propertyName, String universeType) {
+    private UniverseReference readUniverseBag(
+            IProperties properties,
+            String propertyName,
+            String universeType,
+            FolderPathResolver folderPathResolver) throws SDKException {
         IProperties universeBag = getProperties(properties, propertyName);
         if (universeBag == null) {
             return UniverseReference.empty();
@@ -343,6 +347,12 @@ public class ReportInventoryModule {
         Set<String> cuids = new LinkedHashSet<>();
 
         collectUniverseValues(universeBag, ids, names, cuids);
+
+        UniverseReference universeById = queryUniverseByIds(ids, universeType, folderPathResolver);
+        if (!universeById.isEmpty()) {
+            return universeById;
+        }
+
         return new UniverseReference(
                 String.join(", ", ids),
                 String.join(", ", names),
@@ -373,8 +383,88 @@ public class ReportInventoryModule {
                 if (childProperties != null) {
                     collectUniverseValues(childProperties, ids, names, cuids);
                 }
+            } else {
+                addPositiveInteger(ids, safeGetString(properties, keyObject));
             }
         }
+    }
+
+    private UniverseReference queryUniverseByIds(
+            Set<String> universeIds,
+            String defaultType,
+            FolderPathResolver folderPathResolver) throws SDKException {
+        Set<String> numericUniverseIds = new LinkedHashSet<>();
+        for (String universeId : universeIds) {
+            if (isPositiveInteger(universeId)) {
+                numericUniverseIds.add(universeId);
+            }
+        }
+
+        if (numericUniverseIds.isEmpty()) {
+            return UniverseReference.empty();
+        }
+
+        String query = "SELECT TOP 100 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
+                + "FROM CI_APPOBJECTS "
+                + "WHERE SI_KIND IN ('Universe', 'DSL.Universe', 'DSL.MetaDataFile') "
+                + "AND (" + buildIdPredicate(numericUniverseIds) + ")";
+        IInfoObjects universes = folderPathResolver.infoStore.query(query);
+
+        if (universes.size() == 0) {
+            return UniverseReference.empty();
+        }
+
+        Set<String> ids = new LinkedHashSet<>();
+        Set<String> names = new LinkedHashSet<>();
+        Set<String> cuids = new LinkedHashSet<>();
+        Set<String> types = new LinkedHashSet<>();
+        Set<String> paths = new LinkedHashSet<>();
+
+        for (Object universeObject : universes) {
+            IInfoObject universe = (IInfoObject) universeObject;
+            ids.add(String.valueOf(universe.getID()));
+            names.add(universe.getTitle());
+            cuids.add(universe.getCUID());
+            types.add(getUniverseType(universe, defaultType));
+            paths.add(folderPathResolver.resolve(universe.properties().getInt("SI_PARENTID")));
+        }
+
+        return new UniverseReference(
+                String.join(", ", ids),
+                String.join(", ", names),
+                String.join(", ", types),
+                String.join(", ", cuids),
+                String.join(", ", paths));
+    }
+
+    private String buildIdPredicate(Set<String> universeIds) {
+        List<String> predicates = new ArrayList<>();
+        for (String universeId : universeIds) {
+            predicates.add("SI_ID = " + universeId);
+        }
+
+        return String.join(" OR ", predicates);
+    }
+
+    private void addPositiveInteger(Set<String> values, String value) {
+        if (isPositiveInteger(value)) {
+            values.add(value.trim());
+        }
+    }
+
+    private boolean isPositiveInteger(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+
+        String trimmedValue = value.trim();
+        for (int index = 0; index < trimmedValue.length(); index++) {
+            if (!Character.isDigit(trimmedValue.charAt(index))) {
+                return false;
+            }
+        }
+
+        return Integer.parseInt(trimmedValue) > 0;
     }
 
     private int getIntProperty(IProperties properties, String propertyName) {

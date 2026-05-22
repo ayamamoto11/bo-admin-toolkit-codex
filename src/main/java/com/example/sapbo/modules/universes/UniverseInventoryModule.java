@@ -20,7 +20,10 @@ import java.util.Set;
 
 public class UniverseInventoryModule {
     private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
-    private static final Integer SL_UNIVERSE_CONNECTIONS_PROPERTY_ID = Integer.valueOf(268435598);
+    private static final Integer[] SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS = {
+            Integer.valueOf(268435598),
+            Integer.valueOf(268435564)
+    };
 
     private static final String UNIVERSE_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID, "
             + "SI_SPECIFIC_KIND, SI_CONNECTION, SI_DATACONNECTION, SI_DATACONNECTIONS, "
@@ -491,7 +494,14 @@ public class UniverseInventoryModule {
             return connections;
         }
 
-        return getProperties(properties, SL_UNIVERSE_CONNECTIONS_PROPERTY_ID);
+        for (Integer propertyId : SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS) {
+            connections = getProperties(properties, propertyId);
+            if (connections != null) {
+                return connections;
+            }
+        }
+
+        return null;
     }
 
     private String safeGetString(IProperties properties, Object keyObject) {

@@ -20,6 +20,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class UserGroupInventoryModule {
+    private static final String USER_GROUPS_PROPERTY = "SI_USERGROUPS";
+    private static final Integer USER_GROUPS_PROPERTY_ID = Integer.valueOf(16780918);
+
     private static final String GROUP_QUERY = "SELECT TOP 100000 * "
             + "FROM CI_SYSTEMOBJECTS "
             + "WHERE SI_KIND = 'UserGroup' "
@@ -92,7 +95,7 @@ public class UserGroupInventoryModule {
         for (Object object : objects) {
             IInfoObject infoObject = (IInfoObject) object;
             Set<Integer> parentGroupIds = new LinkedHashSet<>();
-            collectIds(getProperties(infoObject.properties(), "SI_USERGROUPS"), parentGroupIds);
+            collectIds(getUserGroupsProperties(infoObject.properties()), parentGroupIds);
             principalsById.put(infoObject.getID(), new PrincipalReference(
                     infoObject.getID(),
                     getUserDisplayName(infoObject),
@@ -136,6 +139,7 @@ public class UserGroupInventoryModule {
         for (String containerName : MEMBER_CONTAINER_NAMES) {
             collectIds(getProperties(properties, containerName), memberIds);
         }
+        collectIds(getUserGroupsProperties(properties), memberIds);
         collectMemberIdsFromNamedContainers(properties, memberIds, 0);
         memberIds.remove(infoObject.getID());
 
@@ -304,6 +308,15 @@ public class UserGroupInventoryModule {
         }
 
         return null;
+    }
+
+    private IProperties getUserGroupsProperties(IProperties properties) {
+        IProperties userGroups = getProperties(properties, USER_GROUPS_PROPERTY);
+        if (userGroups != null) {
+            return userGroups;
+        }
+
+        return getProperties(properties, USER_GROUPS_PROPERTY_ID);
     }
 
     private String safeGetString(IProperties properties, Object keyObject) {

@@ -18,7 +18,10 @@ import java.util.Set;
 
 public class UniverseDebugModule {
     private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
-    private static final Integer SL_UNIVERSE_CONNECTIONS_PROPERTY_ID = Integer.valueOf(268435598);
+    private static final Integer[] SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS = {
+            Integer.valueOf(268435598),
+            Integer.valueOf(268435564)
+    };
 
     private final ConnectionManager connectionManager;
 
@@ -43,7 +46,7 @@ public class UniverseDebugModule {
         queryResults.add(InfoObjectDebugSupport.queryObjects(
                 infoStore,
                 "Exact SL universe query",
-                "SELECT TOP 10 SI_ID, SI_NAME, SI_SL_UNIVERSE_TO_CONNECTIONS "
+                "SELECT TOP 10 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_SL_UNIVERSE_TO_CONNECTIONS "
                         + "FROM CI_APPOBJECTS "
                         + "WHERE SI_SPECIFIC_KIND = 'DSL.Universe' AND SI_ID = " + universeId));
         queryResults.add(InfoObjectDebugSupport.queryObjects(
@@ -120,7 +123,14 @@ public class UniverseDebugModule {
             return connections;
         }
 
-        return getProperties(properties, SL_UNIVERSE_CONNECTIONS_PROPERTY_ID);
+        for (Integer propertyId : SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS) {
+            connections = getProperties(properties, propertyId);
+            if (connections != null) {
+                return connections;
+            }
+        }
+
+        return null;
     }
 
     private boolean isPositiveInteger(String value) {

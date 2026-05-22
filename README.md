@@ -2,13 +2,13 @@
 
 JSP-based Java administration utility for SAP BusinessObjects 4.3 SP4.
 
-The first assignment screen collects CMS, user, and password values, logs in with Enterprise authentication, lists Web Intelligence reports on screen, and exports the result to Excel.
+The login screen collects CMS, user, and password values, logs in with Enterprise authentication, and then lets you choose an administration module.
 
 ## Project Layout
 
 - `com.example.sapbo.core` - shared connection/config services
 - `com.example.sapbo.modules.reports` - report administration utilities
-- `com.example.sapbo.modules.universes` - placeholder package for universe utilities
+- `com.example.sapbo.modules.universes` - universe inventory utilities
 - `com.example.sapbo.modules.schedules` - placeholder package for schedule utilities
 - `com.example.sapbo.modules.users` - placeholder package for user utilities
 - `com.example.sapbo.ui` - JSP servlet controllers and display helpers
@@ -50,6 +50,21 @@ Deploy the generated WAR from `target/bo-admin-utils-1.0.0-SNAPSHOT.war` to a se
 
 The project compiles for Java 8 bytecode so it can run on Tomcat instances that are still using Java 8.
 
+## Result Limits
+
+The main inventory modules currently request up to `100000` objects from the CMS Query Builder API.
+
+If your BO environment grows beyond 100,000 reports or universes, update these constants/query strings:
+
+- Report inventory: `src/main/java/com/example/sapbo/modules/reports/ReportInventoryModule.java`
+  - `REPORT_QUERY`
+  - Change `SELECT TOP 100000 ...` to a larger value.
+- Universe inventory: `src/main/java/com/example/sapbo/modules/universes/UniverseInventoryModule.java`
+  - `UNIVERSE_QUERY`
+  - Change `SELECT TOP 100000 ...` to a larger value.
+
+Smaller helper queries such as `SELECT TOP 100 ...` are used only for related objects like connections, universe lookups, or debug results. Those usually do not need to match the main inventory limit.
+
 ## Output
 
 The report inventory includes:
@@ -64,4 +79,18 @@ The report inventory includes:
 - Universe type (`UNV` or `UNX`)
 - Universe CUID
 
-The same result set can be downloaded as `webi-report-inventory.xlsx`.
+The universe inventory includes:
+
+- Universe ID
+- Universe name
+- Universe CUID
+- Universe type (`UNV` or `UNX`)
+- Parent folder ID
+- Folder path
+- Connection ID
+- Connection name
+- Connection type, when BO exposes enough metadata to infer it
+- Database/server/DSN, when BO exposes it in connection metadata
+
+The report result set can be downloaded as `webi-report-inventory.xlsx`.
+The universe result set can be downloaded as `universe-inventory.xlsx`.

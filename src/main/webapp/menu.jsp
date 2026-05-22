@@ -29,6 +29,8 @@
                href="${pageContext.request.contextPath}/enterprise-aliases">Enterprise Alias Creator</a>
             <a class="button loading-trigger" data-loading-message="Opening report property update tool..."
                href="${pageContext.request.contextPath}/report-property-updates">Report Property Updates</a>
+            <a class="button loading-trigger" data-loading-message="Opening report archive tool..."
+               href="${pageContext.request.contextPath}/report-archive">Report Archive</a>
             <a class="button secondary" href="${pageContext.request.contextPath}/debug-tools.jsp">Debug Tools</a>
             <a class="button secondary" href="${pageContext.request.contextPath}/index.jsp">New Login</a>
         </div>

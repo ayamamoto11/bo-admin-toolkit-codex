@@ -1,8 +1,9 @@
 package com.example.sapbo.core;
 
 import java.util.Objects;
+import java.io.Serializable;
 
-public class BoCredentials {
+public class BoCredentials implements Serializable {
     public static final String ENTERPRISE_AUTHENTICATION = "secEnterprise";
 
     private final String cms;

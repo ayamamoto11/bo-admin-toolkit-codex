@@ -21,6 +21,8 @@ import java.util.Set;
 
 public class UserGroupInventoryModule {
     private static final String USER_GROUPS_PROPERTY = "SI_USERGROUPS";
+    private static final String USER_FULL_NAME_PROPERTY = "SI_USERFULLNAME";
+    private static final Integer USER_FULL_NAME_PROPERTY_ID = Integer.valueOf(16777258);
     private static final Integer[] USER_GROUPS_PROPERTY_IDS = {
             Integer.valueOf(16777256),
             Integer.valueOf(16780918),
@@ -75,6 +77,7 @@ public class UserGroupInventoryModule {
             if (!principalsById.containsKey(group.id)) {
                 principalsById.put(group.id, new PrincipalReference(
                         group.id,
+                        "",
                         group.name,
                         group.cuid,
                         "UserGroup",
@@ -103,7 +106,8 @@ public class UserGroupInventoryModule {
             collectUserGroupIds(infoObject.properties(), parentGroupIds);
             principalsById.put(infoObject.getID(), new PrincipalReference(
                     infoObject.getID(),
-                    getUserDisplayName(infoObject),
+                    infoObject.getTitle(),
+                    getUserFullName(infoObject),
                     infoObject.getCUID(),
                     "User",
                     parentGroupIds,
@@ -113,13 +117,13 @@ public class UserGroupInventoryModule {
         return principalsById;
     }
 
-    private String getUserDisplayName(IInfoObject infoObject) throws SDKException {
-        String fullName = safeGetString(infoObject.properties(), "SI_USERFULLNAME");
-        if (fullName.isEmpty() || fullName.equals(infoObject.getTitle())) {
-            return infoObject.getTitle();
+    private String getUserFullName(IInfoObject infoObject) {
+        String fullName = safeGetString(infoObject.properties(), USER_FULL_NAME_PROPERTY);
+        if (!fullName.isEmpty()) {
+            return fullName;
         }
 
-        return infoObject.getTitle() + " - " + fullName;
+        return safeGetString(infoObject.properties(), USER_FULL_NAME_PROPERTY_ID);
     }
 
     private void addMembershipsFromPrincipalGroups(
@@ -164,7 +168,8 @@ public class UserGroupInventoryModule {
             return Collections.singletonList(new UserGroupInventoryRecord(
                     principal.getDisplayType(),
                     principal.id,
-                    principal.name,
+                    principal.username,
+                    principal.fullName,
                     principal.cuid,
                     "",
                     "",
@@ -181,7 +186,8 @@ public class UserGroupInventoryModule {
             records.add(new UserGroupInventoryRecord(
                     principal.getDisplayType(),
                     principal.id,
-                    principal.name,
+                    principal.username,
+                    principal.fullName,
                     principal.cuid,
                     String.valueOf(parentGroupId),
                     parentGroup.name,
@@ -193,7 +199,8 @@ public class UserGroupInventoryModule {
             return Collections.singletonList(new UserGroupInventoryRecord(
                     principal.getDisplayType(),
                     principal.id,
-                    principal.name,
+                    principal.username,
+                    principal.fullName,
                     principal.cuid,
                     "",
                     "",
@@ -386,7 +393,8 @@ public class UserGroupInventoryModule {
 
     private static final class PrincipalReference {
         private final int id;
-        private final String name;
+        private final String username;
+        private final String fullName;
         private final String cuid;
         private final String kind;
         private final Set<Integer> parentGroupIds;
@@ -394,13 +402,15 @@ public class UserGroupInventoryModule {
 
         private PrincipalReference(
                 int id,
-                String name,
+                String username,
+                String fullName,
                 String cuid,
                 String kind,
                 Set<Integer> parentGroupIds,
                 String disabled) {
             this.id = id;
-            this.name = name;
+            this.username = username;
+            this.fullName = fullName;
             this.cuid = cuid;
             this.kind = kind;
             this.parentGroupIds = parentGroupIds;

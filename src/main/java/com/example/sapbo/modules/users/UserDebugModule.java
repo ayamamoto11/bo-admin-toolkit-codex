@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Set;
 
 public class UserDebugModule {
+    private static final String USER_GROUPS_PROPERTY = "SI_USERGROUPS";
+    private static final Integer USER_GROUPS_PROPERTY_ID = Integer.valueOf(16780918);
+
     private final ConnectionManager connectionManager;
 
     public UserDebugModule(ConnectionManager connectionManager) {
@@ -59,7 +62,7 @@ public class UserDebugModule {
 
     private String buildGroupLookupQuery(IProperties userProperties) {
         Set<String> groupIds = new LinkedHashSet<>();
-        collectIds(getProperties(userProperties, "SI_USERGROUPS"), groupIds);
+        collectIds(getUserGroupsProperties(userProperties), groupIds);
 
         List<String> predicates = new ArrayList<>();
         for (String groupId : groupIds) {
@@ -92,6 +95,9 @@ public class UserDebugModule {
     }
 
     private IProperties getProperties(IProperties properties, Object propertyName) {
+        if (properties == null) {
+            return null;
+        }
         if (properties.containsKey(propertyName)) {
             return properties.getProperties(propertyName);
         }
@@ -103,6 +109,15 @@ public class UserDebugModule {
         }
 
         return null;
+    }
+
+    private IProperties getUserGroupsProperties(IProperties properties) {
+        IProperties userGroups = getProperties(properties, USER_GROUPS_PROPERTY);
+        if (userGroups != null) {
+            return userGroups;
+        }
+
+        return getProperties(properties, USER_GROUPS_PROPERTY_ID);
     }
 
     private boolean isPositiveInteger(String value) {

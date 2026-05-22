@@ -41,6 +41,7 @@
                         <th>Parent Folder ID</th>
                         <th>Folder Path</th>
                         <th>Data Provider Type</th>
+                        <th>Data Provider Name</th>
                         <th>Universe ID</th>
                         <th>Universe</th>
                         <th>Universe Type</th>
@@ -58,6 +59,7 @@
                             <td><%= report.getParentFolderId() %></td>
                             <td><%= HtmlEscaper.escape(report.getFolderPath()) %></td>
                             <td><%= HtmlEscaper.escape(report.getDataProviderType()) %></td>
+                            <td><%= HtmlEscaper.escape(report.getDataProviderName()) %></td>
                             <td><%= HtmlEscaper.escape(report.getUniverseId()) %></td>
                             <td><%= HtmlEscaper.escape(report.getUniverseName()) %></td>
                             <td><%= HtmlEscaper.escape(report.getUniverseType()) %></td>

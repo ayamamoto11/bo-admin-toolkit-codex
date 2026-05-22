@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class ReportInventoryModule {
+    private static final String SI_DSL_UNIVERSE_PROPERTY_ID = "16777350";
+
     private static final String REPORT_QUERY = "SELECT TOP 100000 SI_NAME, SI_ID, SI_CUID, SI_OWNERID, SI_PARENTID, "
             + "SI_PATH, SI_UNIVERSE, SI_DSL_UNIVERSE "
             + "FROM CI_INFOOBJECTS "
@@ -337,7 +339,7 @@ public class ReportInventoryModule {
             String propertyName,
             String universeType,
             FolderPathResolver folderPathResolver) throws SDKException {
-        IProperties universeBag = getProperties(properties, propertyName);
+        IProperties universeBag = getUniverseBagProperties(properties, propertyName);
         if (universeBag == null) {
             return UniverseReference.empty();
         }
@@ -359,6 +361,19 @@ public class ReportInventoryModule {
                 names.isEmpty() ? "" : universeType,
                 String.join(", ", cuids),
                 "");
+    }
+
+    private IProperties getUniverseBagProperties(IProperties properties, String propertyName) {
+        IProperties universeBag = getProperties(properties, propertyName);
+        if (universeBag != null) {
+            return universeBag;
+        }
+
+        if ("SI_DSL_UNIVERSE".equals(propertyName)) {
+            return getProperties(properties, SI_DSL_UNIVERSE_PROPERTY_ID);
+        }
+
+        return null;
     }
 
     private void collectUniverseValues(
@@ -481,11 +496,18 @@ public class ReportInventoryModule {
     }
 
     private IProperties getProperties(IProperties properties, Object propertyName) {
-        if (!properties.containsKey(propertyName)) {
-            return null;
+        if (properties.containsKey(propertyName)) {
+            return properties.getProperties(propertyName);
         }
 
-        return properties.getProperties(propertyName);
+        if (propertyName instanceof String && isPositiveInteger((String) propertyName)) {
+            Integer numericPropertyName = Integer.valueOf((String) propertyName);
+            if (properties.containsKey(numericPropertyName)) {
+                return properties.getProperties(numericPropertyName);
+            }
+        }
+
+        return null;
     }
 
     private String safeGetString(IProperties properties, Object keyObject) {

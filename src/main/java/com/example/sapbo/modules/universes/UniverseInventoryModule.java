@@ -19,6 +19,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class UniverseInventoryModule {
+    private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
+    private static final Integer SL_UNIVERSE_CONNECTIONS_PROPERTY_ID = Integer.valueOf(268435598);
+
     private static final String UNIVERSE_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID, "
             + "SI_SPECIFIC_KIND, SI_CONNECTION, SI_DATACONNECTION, SI_DATACONNECTIONS, "
             + "SI_SL_UNIVERSE_TO_CONNECTIONS "
@@ -134,7 +137,7 @@ public class UniverseInventoryModule {
             IInfoObject universe,
             FolderPathResolver folderPathResolver) throws SDKException {
         Set<String> connectionIds = new LinkedHashSet<>();
-        collectIds(getProperties(universe.properties(), "SI_SL_UNIVERSE_TO_CONNECTIONS"), connectionIds);
+        collectIds(getSlUniverseConnectionsProperties(universe.properties()), connectionIds);
 
         if (connectionIds.isEmpty()) {
             return Collections.emptyList();
@@ -480,6 +483,15 @@ public class UniverseInventoryModule {
         }
 
         return null;
+    }
+
+    private IProperties getSlUniverseConnectionsProperties(IProperties properties) {
+        IProperties connections = getProperties(properties, SL_UNIVERSE_CONNECTIONS_PROPERTY);
+        if (connections != null) {
+            return connections;
+        }
+
+        return getProperties(properties, SL_UNIVERSE_CONNECTIONS_PROPERTY_ID);
     }
 
     private String safeGetString(IProperties properties, Object keyObject) {

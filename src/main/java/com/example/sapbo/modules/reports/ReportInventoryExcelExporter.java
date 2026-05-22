@@ -21,6 +21,7 @@ public class ReportInventoryExcelExporter {
             "Parent Folder ID",
             "Folder Path",
             "Data Provider Type",
+            "Universe ID",
             "Universe",
             "Universe Type",
             "Universe CUID",
@@ -49,10 +50,11 @@ public class ReportInventoryExcelExporter {
                 row.createCell(4).setCellValue(record.getParentFolderId());
                 row.createCell(5).setCellValue(record.getFolderPath());
                 row.createCell(6).setCellValue(record.getDataProviderType());
-                row.createCell(7).setCellValue(record.getUniverseName());
-                row.createCell(8).setCellValue(record.getUniverseType());
-                row.createCell(9).setCellValue(record.getUniverseCuid());
-                row.createCell(10).setCellValue(record.getUniversePath());
+                row.createCell(7).setCellValue(record.getUniverseId());
+                row.createCell(8).setCellValue(record.getUniverseName());
+                row.createCell(9).setCellValue(record.getUniverseType());
+                row.createCell(10).setCellValue(record.getUniverseCuid());
+                row.createCell(11).setCellValue(record.getUniversePath());
             }
 
             for (int column = 0; column < HEADERS.length; column++) {

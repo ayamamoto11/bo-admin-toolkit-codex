@@ -111,6 +111,12 @@ button {
     flex-wrap: wrap;
 }
 
+.module-actions {
+    display: grid;
+    gap: 12px;
+    margin-top: 24px;
+}
+
 .table-wrap {
     overflow-x: auto;
 }

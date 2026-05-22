@@ -52,13 +52,29 @@ public final class InfoObjectDebugSupport {
                 rows.add(new DebugResult.Row(
                         String.valueOf(infoObject.getID()),
                         infoObject.getTitle(),
-                        infoObject.getKind(),
-                        infoObject.getCUID()));
+                        safeKind(infoObject),
+                        safeCuid(infoObject)));
             }
 
             return new DebugResult.QueryResult(label, query, rows, "");
         } catch (SDKException exception) {
             return new DebugResult.QueryResult(label, query, new ArrayList<DebugResult.Row>(), exception.getMessage());
+        }
+    }
+
+    private static String safeKind(IInfoObject infoObject) {
+        try {
+            return infoObject.getKind();
+        } catch (SDKException exception) {
+            return "";
+        }
+    }
+
+    private static String safeCuid(IInfoObject infoObject) {
+        try {
+            return infoObject.getCUID();
+        } catch (SDKException exception) {
+            return "";
         }
     }
 

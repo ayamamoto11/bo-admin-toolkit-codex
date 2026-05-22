@@ -19,9 +19,11 @@ import java.util.Set;
 public class UniverseDebugModule {
     private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
     private static final Integer[] SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS = {
-            Integer.valueOf(268435598),
-            Integer.valueOf(268435564)
+            Integer.valueOf(268435564),
+            Integer.valueOf(268435598)
     };
+    private static final String PROPERTY_TOTAL = "SI_TOTAL";
+    private static final String PROPERTY_TOTAL_ID = "16777248";
 
     private final ConnectionManager connectionManager;
 
@@ -87,6 +89,9 @@ public class UniverseDebugModule {
         }
 
         for (Object keyObject : properties.keySet()) {
+            if (isTotalProperty(keyObject)) {
+                continue;
+            }
             IProperty property = properties.getProperty(keyObject);
             if (property != null && property.isContainer()) {
                 collectIds(getProperties(properties, keyObject), ids);
@@ -131,6 +136,11 @@ public class UniverseDebugModule {
         }
 
         return null;
+    }
+
+    private boolean isTotalProperty(Object keyObject) {
+        String key = String.valueOf(keyObject);
+        return PROPERTY_TOTAL.equalsIgnoreCase(key) || PROPERTY_TOTAL_ID.equals(key);
     }
 
     private boolean isPositiveInteger(String value) {

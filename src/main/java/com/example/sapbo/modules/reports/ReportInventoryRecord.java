@@ -10,6 +10,7 @@ public class ReportInventoryRecord implements Serializable {
     private final int parentFolderId;
     private final String folderPath;
     private final String dataProviderType;
+    private final String universeId;
     private final String universeName;
     private final String universeType;
     private final String universeCuid;
@@ -23,6 +24,7 @@ public class ReportInventoryRecord implements Serializable {
             int parentFolderId,
             String folderPath,
             String dataProviderType,
+            String universeId,
             String universeName,
             String universeType,
             String universeCuid,
@@ -34,6 +36,7 @@ public class ReportInventoryRecord implements Serializable {
         this.parentFolderId = parentFolderId;
         this.folderPath = folderPath;
         this.dataProviderType = dataProviderType;
+        this.universeId = universeId;
         this.universeName = universeName;
         this.universeType = universeType;
         this.universeCuid = universeCuid;
@@ -66,6 +69,10 @@ public class ReportInventoryRecord implements Serializable {
 
     public String getDataProviderType() {
         return dataProviderType;
+    }
+
+    public String getUniverseId() {
+        return universeId;
     }
 
     public String getUniverseName() {

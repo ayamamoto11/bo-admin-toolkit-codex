@@ -28,6 +28,8 @@ public class UniverseDebugServlet extends HttpServlet {
             int universeId = Integer.parseInt(request.getParameter("universeId"));
             UniverseDebugModule module = new UniverseDebugModule(connectionManager);
             DebugResult debugResult = module.inspectUniverse(universeId);
+            request.getSession().setAttribute("objectDebugTitle", "Universe Debug");
+            request.getSession().setAttribute("objectDebugResult", debugResult);
             request.setAttribute("debugTitle", "Universe Debug");
             request.setAttribute("debugResult", debugResult);
             request.setAttribute("cms", credentials.getCms());

@@ -23,6 +23,10 @@
                href="${pageContext.request.contextPath}/universes">Universe Inventory</a>
             <a class="button loading-trigger" data-loading-message="Building users and groups inventory..."
                href="${pageContext.request.contextPath}/users-groups">Users and Groups Inventory</a>
+            <a class="button loading-trigger" data-loading-message="Building connection inventory..."
+               href="${pageContext.request.contextPath}/connections">Connection Inventory</a>
+            <a class="button loading-trigger" data-loading-message="Finding AD users without Enterprise aliases..."
+               href="${pageContext.request.contextPath}/enterprise-aliases">Enterprise Alias Creator</a>
             <a class="button secondary" href="${pageContext.request.contextPath}/debug-tools.jsp">Debug Tools</a>
             <a class="button secondary" href="${pageContext.request.contextPath}/index.jsp">New Login</a>
         </div>

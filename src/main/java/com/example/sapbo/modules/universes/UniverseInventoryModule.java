@@ -21,9 +21,11 @@ import java.util.Set;
 public class UniverseInventoryModule {
     private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
     private static final Integer[] SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS = {
-            Integer.valueOf(268435598),
-            Integer.valueOf(268435564)
+            Integer.valueOf(268435564),
+            Integer.valueOf(268435598)
     };
+    private static final String PROPERTY_TOTAL = "SI_TOTAL";
+    private static final String PROPERTY_TOTAL_ID = "16777248";
 
     private static final String UNIVERSE_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID, "
             + "SI_SPECIFIC_KIND, SI_CONNECTION, SI_DATACONNECTION, SI_DATACONNECTIONS, "
@@ -257,6 +259,9 @@ public class UniverseInventoryModule {
         }
 
         for (Object keyObject : properties.keySet()) {
+            if (isTotalProperty(keyObject)) {
+                continue;
+            }
             String key = String.valueOf(keyObject).toUpperCase(Locale.ENGLISH);
             IProperty property = properties.getProperty(keyObject);
             boolean connectionKey = key.contains("CONNECTION");
@@ -285,6 +290,9 @@ public class UniverseInventoryModule {
         }
 
         for (Object keyObject : properties.keySet()) {
+            if (isTotalProperty(keyObject)) {
+                continue;
+            }
             IProperty property = properties.getProperty(keyObject);
             if (property != null && property.isContainer()) {
                 collectIds(getProperties(properties, keyObject), ids);
@@ -450,6 +458,11 @@ public class UniverseInventoryModule {
         }
 
         return String.join(" OR ", predicates);
+    }
+
+    private boolean isTotalProperty(Object keyObject) {
+        String key = String.valueOf(keyObject);
+        return PROPERTY_TOTAL.equalsIgnoreCase(key) || PROPERTY_TOTAL_ID.equals(key);
     }
 
     private void addPositiveInteger(Set<String> values, String value) {

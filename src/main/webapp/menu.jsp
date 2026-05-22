@@ -19,6 +19,7 @@
         <div class="module-actions">
             <a class="button" href="${pageContext.request.contextPath}/reports">WebI Report Inventory</a>
             <a class="button" href="${pageContext.request.contextPath}/universes">Universe Inventory</a>
+            <a class="button" href="${pageContext.request.contextPath}/users-groups">Users and Groups Inventory</a>
             <a class="button secondary" href="${pageContext.request.contextPath}/index.jsp">New Login</a>
         </div>
     </section>

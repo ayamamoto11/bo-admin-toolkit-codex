@@ -64,7 +64,7 @@ If your BO environment grows beyond 100,000 reports, universes, users, or groups
   - Change `SELECT TOP 100000 ...` to a larger value.
 - Users and groups inventory: `src/main/java/com/example/sapbo/modules/users/UserGroupInventoryModule.java`
   - `GROUP_QUERY`
-  - `PRINCIPAL_QUERY`
+  - `USER_QUERY`
   - Change `SELECT TOP 100000 ...` to a larger value in both query strings.
 
 Smaller helper queries such as `SELECT TOP 100 ...` are used only for related objects like connections, universe lookups, or debug results. Those usually do not need to match the main inventory limit.

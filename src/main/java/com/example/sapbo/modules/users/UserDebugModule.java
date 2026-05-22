@@ -18,7 +18,13 @@ import java.util.Set;
 
 public class UserDebugModule {
     private static final String USER_GROUPS_PROPERTY = "SI_USERGROUPS";
-    private static final Integer USER_GROUPS_PROPERTY_ID = Integer.valueOf(16780918);
+    private static final Integer[] USER_GROUPS_PROPERTY_IDS = {
+            Integer.valueOf(16777256),
+            Integer.valueOf(16780918),
+            Integer.valueOf(16777726)
+    };
+    private static final String PROPERTY_TOTAL = "SI_TOTAL";
+    private static final String PROPERTY_TOTAL_ID = "16777248";
 
     private final ConnectionManager connectionManager;
 
@@ -43,7 +49,7 @@ public class UserDebugModule {
         queryResults.add(InfoObjectDebugSupport.queryObjects(
                 infoStore,
                 "Exact user group query",
-                "SELECT TOP 10 SI_ID, SI_NAME, SI_USERFULLNAME, SI_USERGROUPS "
+                "SELECT TOP 10 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_USERFULLNAME, SI_USERGROUPS "
                         + "FROM CI_SYSTEMOBJECTS "
                         + "WHERE SI_KIND = 'User' AND SI_ID = " + userId));
         queryResults.add(InfoObjectDebugSupport.queryObjects(
@@ -62,7 +68,7 @@ public class UserDebugModule {
 
     private String buildGroupLookupQuery(IProperties userProperties) {
         Set<String> groupIds = new LinkedHashSet<>();
-        collectIds(getUserGroupsProperties(userProperties), groupIds);
+        collectUserGroupIds(userProperties, groupIds);
 
         List<String> predicates = new ArrayList<>();
         for (String groupId : groupIds) {
@@ -81,6 +87,9 @@ public class UserDebugModule {
         }
 
         for (Object keyObject : properties.keySet()) {
+            if (isTotalProperty(keyObject)) {
+                continue;
+            }
             IProperty property = properties.getProperty(keyObject);
             if (property != null && property.isContainer()) {
                 collectIds(getProperties(properties, keyObject), ids);
@@ -111,13 +120,16 @@ public class UserDebugModule {
         return null;
     }
 
-    private IProperties getUserGroupsProperties(IProperties properties) {
-        IProperties userGroups = getProperties(properties, USER_GROUPS_PROPERTY);
-        if (userGroups != null) {
-            return userGroups;
-        }
+    private boolean isTotalProperty(Object keyObject) {
+        String key = String.valueOf(keyObject);
+        return PROPERTY_TOTAL.equalsIgnoreCase(key) || PROPERTY_TOTAL_ID.equals(key);
+    }
 
-        return getProperties(properties, USER_GROUPS_PROPERTY_ID);
+    private void collectUserGroupIds(IProperties properties, Set<String> ids) {
+        collectIds(getProperties(properties, USER_GROUPS_PROPERTY), ids);
+        for (Integer propertyId : USER_GROUPS_PROPERTY_IDS) {
+            collectIds(getProperties(properties, propertyId), ids);
+        }
     }
 
     private boolean isPositiveInteger(String value) {

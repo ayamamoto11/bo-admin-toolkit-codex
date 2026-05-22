@@ -21,7 +21,7 @@ public class ReportInventoryExportServlet extends HttpServlet {
                 (List<ReportInventoryRecord>) request.getSession().getAttribute("reportInventory");
 
         if (reports == null) {
-            response.sendRedirect(request.getContextPath() + "/index.jsp");
+            response.sendRedirect(request.getContextPath() + "/menu.jsp");
             return;
         }
 

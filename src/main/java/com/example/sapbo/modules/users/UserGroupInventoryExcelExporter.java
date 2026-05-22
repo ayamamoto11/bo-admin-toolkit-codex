@@ -16,7 +16,8 @@ public class UserGroupInventoryExcelExporter {
     private static final String[] HEADERS = {
             "Object Type",
             "Object ID",
-            "Object Name",
+            "Username",
+            "Full Name",
             "Object CUID",
             "Parent Group ID",
             "Parent Group Name",
@@ -41,12 +42,13 @@ public class UserGroupInventoryExcelExporter {
                 Row row = sheet.createRow(rowIndex++);
                 row.createCell(0).setCellValue(record.getObjectType());
                 row.createCell(1).setCellValue(record.getObjectId());
-                row.createCell(2).setCellValue(record.getObjectName());
-                row.createCell(3).setCellValue(record.getObjectCuid());
-                row.createCell(4).setCellValue(record.getParentGroupId());
-                row.createCell(5).setCellValue(record.getParentGroupName());
-                row.createCell(6).setCellValue(record.getGroupPath());
-                row.createCell(7).setCellValue(record.getDisabled());
+                row.createCell(2).setCellValue(record.getUsername());
+                row.createCell(3).setCellValue(record.getFullName());
+                row.createCell(4).setCellValue(record.getObjectCuid());
+                row.createCell(5).setCellValue(record.getParentGroupId());
+                row.createCell(6).setCellValue(record.getParentGroupName());
+                row.createCell(7).setCellValue(record.getGroupPath());
+                row.createCell(8).setCellValue(record.getDisabled());
             }
 
             for (int column = 0; column < HEADERS.length; column++) {

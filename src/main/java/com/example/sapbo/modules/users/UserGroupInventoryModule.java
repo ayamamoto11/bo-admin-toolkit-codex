@@ -78,8 +78,8 @@ public class UserGroupInventoryModule {
         addMembershipsFromPrincipalGroups(principalsById, groupsById);
 
         List<UserGroupInventoryRecord> records = new ArrayList<>();
-        for (GroupReference group : groups) {
-            records.addAll(toGroupMemberRecords(group, groupsById, principalsById));
+        for (PrincipalReference principal : principalsById.values()) {
+            records.addAll(toUserGroupRecords(principal, groupsById));
         }
 
         return records;
@@ -148,36 +148,34 @@ public class UserGroupInventoryModule {
                 getDisabled(properties));
     }
 
-    private List<UserGroupInventoryRecord> toGroupMemberRecords(
-            GroupReference group,
-            Map<Integer, GroupReference> groupsById,
-            Map<Integer, PrincipalReference> principalsById) {
-        String groupPath = buildGroupPath(group.id, groupsById, new HashSet<Integer>());
-
-        if (group.memberIds.isEmpty()) {
+    private List<UserGroupInventoryRecord> toUserGroupRecords(
+            PrincipalReference principal,
+            Map<Integer, GroupReference> groupsById) {
+        if (principal.parentGroupIds.isEmpty()) {
             return Collections.singletonList(new UserGroupInventoryRecord(
-                    "Group",
-                    group.id,
-                    group.name,
-                    group.cuid,
+                    principal.getDisplayType(),
+                    principal.id,
+                    principal.name,
+                    principal.cuid,
                     "",
                     "",
-                    groupPath,
-                    group.disabled));
+                    "",
+                    principal.disabled));
         }
 
         List<UserGroupInventoryRecord> records = new ArrayList<>();
-        for (Integer memberId : group.memberIds) {
-            PrincipalReference member = principalsById.get(memberId);
+        for (Integer parentGroupId : principal.parentGroupIds) {
+            GroupReference parentGroup = groupsById.get(parentGroupId);
             records.add(new UserGroupInventoryRecord(
-                    member == null ? "Member" : member.getDisplayType(),
-                    memberId,
-                    member == null ? "" : member.name,
-                    member == null ? "" : member.cuid,
-                    String.valueOf(group.id),
-                    group.name,
-                    groupPath,
-                    member == null ? "" : member.disabled));
+                    principal.getDisplayType(),
+                    principal.id,
+                    principal.name,
+                    principal.cuid,
+                    String.valueOf(parentGroupId),
+                    parentGroup == null ? "" : parentGroup.name,
+                    parentGroup == null ? String.valueOf(parentGroupId)
+                            : buildGroupPath(parentGroup.id, groupsById, new HashSet<Integer>()),
+                    principal.disabled));
         }
 
         return records;
@@ -315,6 +313,10 @@ public class UserGroupInventoryModule {
             try {
                 return String.valueOf(properties.getInt(String.valueOf(keyObject)));
             } catch (RuntimeException intException) {
+                IProperty property = properties.getProperty(keyObject);
+                if (property != null && property.getValue() != null) {
+                    return String.valueOf(property.getValue()).trim();
+                }
                 return "";
             }
         }

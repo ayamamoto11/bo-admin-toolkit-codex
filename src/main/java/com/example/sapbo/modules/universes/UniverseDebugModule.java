@@ -41,6 +41,7 @@ public class UniverseDebugModule {
         }
 
         IInfoObject universe = (IInfoObject) universes.get(0);
+        IInfoObject slUniverse = querySlUniverse(infoStore, universeId);
         List<DebugResult.Row> properties = new ArrayList<>();
         InfoObjectDebugSupport.flattenProperties("", universe.properties(), properties, 0);
 
@@ -48,13 +49,13 @@ public class UniverseDebugModule {
         queryResults.add(InfoObjectDebugSupport.queryObjects(
                 infoStore,
                 "Exact SL universe query",
-                "SELECT TOP 10 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_SL_UNIVERSE_TO_CONNECTIONS "
+                "SELECT TOP 10 SI_NAME, SI_ID, SI_SL_UNIVERSE_TO_CONNECTIONS "
                         + "FROM CI_APPOBJECTS "
-                        + "WHERE SI_SPECIFIC_KIND = 'DSL.Universe' AND SI_ID = " + universeId));
+                        + "WHERE SI_KIND = 'DSL.Universe' AND SI_ID = " + universeId));
         queryResults.add(InfoObjectDebugSupport.queryObjects(
                 infoStore,
                 "Connection ID lookup from all properties",
-                buildConnectionLookupQuery(universe.properties())));
+                buildConnectionLookupQuery(slUniverse == null ? universe.properties() : slUniverse.properties())));
 
         return new DebugResult(
                 universeId,
@@ -63,6 +64,17 @@ public class UniverseDebugModule {
                 universe.getKind(),
                 properties,
                 queryResults);
+    }
+
+    private IInfoObject querySlUniverse(IInfoStore infoStore, int universeId) throws SDKException {
+        IInfoObjects universes = infoStore.query("SELECT TOP 1 SI_NAME, SI_ID, SI_SL_UNIVERSE_TO_CONNECTIONS "
+                + "FROM CI_APPOBJECTS "
+                + "WHERE SI_KIND = 'DSL.Universe' AND SI_ID = " + universeId);
+        if (universes.size() == 0) {
+            return null;
+        }
+
+        return (IInfoObject) universes.get(0);
     }
 
     private String buildConnectionLookupQuery(IProperties universeProperties) {

@@ -164,7 +164,7 @@ public class UniverseInventoryModule {
             IInfoObject universe,
             FolderPathResolver folderPathResolver) throws SDKException {
         Set<String> connectionIds = new LinkedHashSet<>();
-        collectConnectionIds(universe.properties(), connectionIds, 0);
+        collectConnectionIds(universe.properties(), connectionIds, false, 0);
 
         if (connectionIds.isEmpty()) {
             return Collections.emptyList();
@@ -176,7 +176,11 @@ public class UniverseInventoryModule {
         return toConnectionReferences(folderPathResolver.infoStore.query(query));
     }
 
-    private void collectConnectionIds(IProperties properties, Set<String> connectionIds, int depth) {
+    private void collectConnectionIds(
+            IProperties properties,
+            Set<String> connectionIds,
+            boolean insideConnectionContainer,
+            int depth) {
         if (depth > 5) {
             return;
         }
@@ -184,16 +188,21 @@ public class UniverseInventoryModule {
         for (Object keyObject : properties.keySet()) {
             String key = String.valueOf(keyObject).toUpperCase(Locale.ENGLISH);
             IProperty property = properties.getProperty(keyObject);
+            boolean connectionKey = key.contains("CONNECTION");
 
             if (property != null && property.isContainer()) {
                 IProperties childProperties = getProperties(properties, keyObject);
                 if (childProperties != null) {
-                    collectConnectionIds(childProperties, connectionIds, depth + 1);
+                    collectConnectionIds(
+                            childProperties,
+                            connectionIds,
+                            insideConnectionContainer || connectionKey,
+                            depth + 1);
                 }
                 continue;
             }
 
-            if (key.contains("CONNECTION")) {
+            if (insideConnectionContainer || connectionKey) {
                 addPositiveInteger(connectionIds, safeGetString(properties, keyObject));
             }
         }

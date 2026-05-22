@@ -10,7 +10,7 @@ The login screen collects CMS, user, and password values, logs in with Enterpris
 - `com.example.sapbo.modules.reports` - report administration utilities
 - `com.example.sapbo.modules.universes` - universe inventory utilities
 - `com.example.sapbo.modules.schedules` - placeholder package for schedule utilities
-- `com.example.sapbo.modules.users` - placeholder package for user utilities
+- `com.example.sapbo.modules.users` - user and group inventory utilities
 - `com.example.sapbo.ui` - JSP servlet controllers and display helpers
 - `src/main/webapp` - JSP pages, CSS, and web deployment descriptor
 
@@ -54,13 +54,16 @@ The project compiles for Java 8 bytecode so it can run on Tomcat instances that 
 
 The main inventory modules currently request up to `100000` objects from the CMS Query Builder API.
 
-If your BO environment grows beyond 100,000 reports or universes, update these constants/query strings:
+If your BO environment grows beyond 100,000 reports, universes, users, or groups, update these constants/query strings:
 
 - Report inventory: `src/main/java/com/example/sapbo/modules/reports/ReportInventoryModule.java`
   - `REPORT_QUERY`
   - Change `SELECT TOP 100000 ...` to a larger value.
 - Universe inventory: `src/main/java/com/example/sapbo/modules/universes/UniverseInventoryModule.java`
   - `UNIVERSE_QUERY`
+  - Change `SELECT TOP 100000 ...` to a larger value.
+- Users and groups inventory: `src/main/java/com/example/sapbo/modules/users/UserGroupInventoryModule.java`
+  - `USER_GROUP_QUERY`
   - Change `SELECT TOP 100000 ...` to a larger value.
 
 Smaller helper queries such as `SELECT TOP 100 ...` are used only for related objects like connections, universe lookups, or debug results. Those usually do not need to match the main inventory limit.
@@ -92,5 +95,17 @@ The universe inventory includes:
 - Connection type, when BO exposes enough metadata to infer it
 - Database/server/DSN, when BO exposes it in connection metadata
 
+The users and groups inventory includes:
+
+- Object type (`User` or `Group`)
+- Object ID
+- Object name
+- Object CUID
+- Parent group ID
+- Parent group name
+- Group hierarchy path
+- Disabled flag, when BO exposes it
+
 The report result set can be downloaded as `webi-report-inventory.xlsx`.
 The universe result set can be downloaded as `universe-inventory.xlsx`.
+The users and groups result set can be downloaded as `users-groups-inventory.xlsx`.

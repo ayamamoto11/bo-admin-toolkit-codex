@@ -17,12 +17,24 @@
             <div class="alert"><%= HtmlEscaper.escape(request.getAttribute("error")) %></div>
         <% } %>
         <div class="module-actions">
-            <a class="button" href="${pageContext.request.contextPath}/reports">WebI Report Inventory</a>
-            <a class="button" href="${pageContext.request.contextPath}/universes">Universe Inventory</a>
-            <a class="button" href="${pageContext.request.contextPath}/users-groups">Users and Groups Inventory</a>
+            <a class="button loading-trigger" data-loading-message="Building WebI report inventory..."
+               href="${pageContext.request.contextPath}/reports">WebI Report Inventory</a>
+            <a class="button loading-trigger" data-loading-message="Building universe inventory..."
+               href="${pageContext.request.contextPath}/universes">Universe Inventory</a>
+            <a class="button loading-trigger" data-loading-message="Building users and groups inventory..."
+               href="${pageContext.request.contextPath}/users-groups">Users and Groups Inventory</a>
             <a class="button secondary" href="${pageContext.request.contextPath}/index.jsp">New Login</a>
         </div>
     </section>
 </main>
+<div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
+    <div class="loading-box">
+        <strong id="loadingMessage">Processing...</strong>
+        <div class="progress-track">
+            <div class="progress-bar"></div>
+        </div>
+    </div>
+</div>
+<script src="${pageContext.request.contextPath}/loading.js"></script>
 </body>
 </html>

@@ -17,14 +17,15 @@ import java.util.List;
 @WebServlet("/reports")
 public class ReportInventoryServlet extends HttpServlet {
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        try {
-            BoCredentials credentials = new BoCredentials(
-                    request.getParameter("cms"),
-                    request.getParameter("username"),
-                    request.getParameter("password"));
+        BoCredentials credentials = (BoCredentials) request.getSession().getAttribute("boCredentials");
+        if (credentials == null) {
+            response.sendRedirect(request.getContextPath() + "/index.jsp");
+            return;
+        }
 
+        try {
             try (ConnectionManager connectionManager = new ConnectionManager(credentials)) {
                 ReportInventoryModule module = new ReportInventoryModule(connectionManager);
                 List<ReportInventoryRecord> reports = module.findWebIntelligenceReports();
@@ -33,12 +34,9 @@ public class ReportInventoryServlet extends HttpServlet {
                 request.setAttribute("cms", credentials.getCms());
                 request.getRequestDispatcher("/reports.jsp").forward(request, response);
             }
-        } catch (IllegalArgumentException exception) {
-            request.setAttribute("error", exception.getMessage());
-            request.getRequestDispatcher("/index.jsp").forward(request, response);
         } catch (SDKException exception) {
             request.setAttribute("error", "Unable to query SAP BusinessObjects: " + exception.getMessage());
-            request.getRequestDispatcher("/index.jsp").forward(request, response);
+            request.getRequestDispatcher("/menu.jsp").forward(request, response);
         }
     }
 }

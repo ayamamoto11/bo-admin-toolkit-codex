@@ -71,22 +71,24 @@ public class ReportInventoryModule {
     }
 
     private void printHeader() {
-        System.out.printf("%-50s %-10s %-30s %-10s %-10s%n",
+        System.out.printf("%-50s %-10s %-30s %-10s %-10s %-15s%n",
                 "Report name",
                 "Object ID",
                 "CUID",
                 "Owner ID",
-                "Parent ID");
-        System.out.println(repeat("-", 115));
+                "Parent ID",
+                "Universe ID");
+        System.out.println(repeat("-", 131));
     }
 
     private void printReport(ReportInventoryRecord report) {
-        System.out.printf("%-50s %-10d %-30s %-10d %-10d%n",
+        System.out.printf("%-50s %-10d %-30s %-10d %-10d %-15s%n",
                 report.getReportName(),
                 report.getObjectId(),
                 report.getCuid(),
                 report.getOwnerId(),
-                report.getParentFolderId());
+                report.getParentFolderId(),
+                report.getUniverseId());
     }
 
     private ReportInventoryRecord toRecord(IInfoObject report, FolderPathResolver folderPathResolver)
@@ -103,6 +105,7 @@ public class ReportInventoryModule {
                 parentFolderId,
                 folderPathResolver.resolve(parentFolderId),
                 universeReference.getDataProviderType(),
+                universeReference.id,
                 universeReference.name,
                 universeReference.type,
                 universeReference.cuid,
@@ -143,6 +146,7 @@ public class ReportInventoryModule {
             return UniverseReference.empty();
         }
 
+        Set<String> ids = new LinkedHashSet<>();
         Set<String> names = new LinkedHashSet<>();
         Set<String> cuids = new LinkedHashSet<>();
         Set<String> types = new LinkedHashSet<>();
@@ -154,6 +158,7 @@ public class ReportInventoryModule {
                 continue;
             }
 
+            addCsvValues(ids, reference.id);
             addCsvValues(names, reference.name);
             addCsvValues(cuids, reference.cuid);
             addCsvValues(types, reference.type);
@@ -165,6 +170,7 @@ public class ReportInventoryModule {
         }
 
         return new UniverseReference(
+                String.join(", ", ids),
                 String.join(", ", names),
                 String.join(", ", types),
                 String.join(", ", cuids),
@@ -224,6 +230,7 @@ public class ReportInventoryModule {
             return UniverseReference.empty();
         }
 
+        Set<String> ids = new LinkedHashSet<>();
         Set<String> names = new LinkedHashSet<>();
         Set<String> cuids = new LinkedHashSet<>();
         Set<String> types = new LinkedHashSet<>();
@@ -231,6 +238,7 @@ public class ReportInventoryModule {
 
         for (Object universeObject : universes) {
             IInfoObject universe = (IInfoObject) universeObject;
+            ids.add(String.valueOf(universe.getID()));
             names.add(universe.getTitle());
             cuids.add(universe.getCUID());
             types.add(getUniverseType(universe, ""));
@@ -238,6 +246,7 @@ public class ReportInventoryModule {
         }
 
         return new UniverseReference(
+                String.join(", ", ids),
                 String.join(", ", names),
                 String.join(", ", types),
                 String.join(", ", cuids),
@@ -285,6 +294,7 @@ public class ReportInventoryModule {
             return UniverseReference.empty();
         }
 
+        Set<String> ids = new LinkedHashSet<>();
         Set<String> names = new LinkedHashSet<>();
         Set<String> cuids = new LinkedHashSet<>();
         Set<String> types = new LinkedHashSet<>();
@@ -292,6 +302,7 @@ public class ReportInventoryModule {
 
         for (Object universeObject : universes) {
             IInfoObject universe = (IInfoObject) universeObject;
+            ids.add(String.valueOf(universe.getID()));
             names.add(universe.getTitle());
             cuids.add(universe.getCUID());
             types.add(getUniverseType(universe, universeType));
@@ -299,6 +310,7 @@ public class ReportInventoryModule {
         }
 
         return new UniverseReference(
+                String.join(", ", ids),
                 String.join(", ", names),
                 String.join(", ", types),
                 String.join(", ", cuids),
@@ -326,18 +338,27 @@ public class ReportInventoryModule {
             return UniverseReference.empty();
         }
 
+        Set<String> ids = new LinkedHashSet<>();
         Set<String> names = new LinkedHashSet<>();
         Set<String> cuids = new LinkedHashSet<>();
 
-        collectUniverseValues(universeBag, names, cuids);
+        collectUniverseValues(universeBag, ids, names, cuids);
         return new UniverseReference(
+                String.join(", ", ids),
                 String.join(", ", names),
                 names.isEmpty() ? "" : universeType,
                 String.join(", ", cuids),
                 "");
     }
 
-    private void collectUniverseValues(IProperties properties, Set<String> names, Set<String> cuids) {
+    private void collectUniverseValues(
+            IProperties properties,
+            Set<String> ids,
+            Set<String> names,
+            Set<String> cuids) {
+        if (properties.containsKey("SI_ID")) {
+            ids.add(String.valueOf(properties.getInt("SI_ID")));
+        }
         if (properties.containsKey("SI_NAME")) {
             names.add(properties.getString("SI_NAME"));
         }
@@ -350,7 +371,7 @@ public class ReportInventoryModule {
             if (property != null && property.isContainer()) {
                 IProperties childProperties = getProperties(properties, keyObject);
                 if (childProperties != null) {
-                    collectUniverseValues(childProperties, names, cuids);
+                    collectUniverseValues(childProperties, ids, names, cuids);
                 }
             }
         }
@@ -400,12 +421,14 @@ public class ReportInventoryModule {
     }
 
     private static final class UniverseReference {
+        private final String id;
         private final String name;
         private final String type;
         private final String cuid;
         private final String path;
 
-        private UniverseReference(String name, String type, String cuid, String path) {
+        private UniverseReference(String id, String name, String type, String cuid, String path) {
+            this.id = id;
             this.name = name;
             this.type = type;
             this.cuid = cuid;
@@ -413,11 +436,11 @@ public class ReportInventoryModule {
         }
 
         private static UniverseReference empty() {
-            return new UniverseReference("", "", "", "");
+            return new UniverseReference("", "", "", "", "");
         }
 
         private static UniverseReference freehandSqlOrOther() {
-            return new UniverseReference("", "", "", "");
+            return new UniverseReference("", "", "", "", "");
         }
 
         private static UniverseReference merge(UniverseReference first, UniverseReference second) {
@@ -429,6 +452,7 @@ public class ReportInventoryModule {
             }
 
             return new UniverseReference(
+                    joinValues(first.id, second.id),
                     joinValues(first.name, second.name),
                     joinValues(first.type, second.type),
                     joinValues(first.cuid, second.cuid),
@@ -447,7 +471,7 @@ public class ReportInventoryModule {
         }
 
         private boolean isEmpty() {
-            return name.isEmpty() && cuid.isEmpty();
+            return id.isEmpty() && name.isEmpty() && cuid.isEmpty();
         }
 
         private String getDataProviderType() {

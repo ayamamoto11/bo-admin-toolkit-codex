@@ -25,7 +25,7 @@ public class UserGroupInventoryModule {
             + "WHERE SI_KIND = 'UserGroup' "
             + "ORDER BY SI_NAME";
 
-    private static final String PRINCIPAL_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_DISABLED "
+    private static final String PRINCIPAL_QUERY = "SELECT TOP 100000 * "
             + "FROM CI_SYSTEMOBJECTS "
             + "WHERE SI_KIND IN ('User', 'UserGroup') "
             + "ORDER BY SI_KIND, SI_NAME";
@@ -69,9 +69,12 @@ public class UserGroupInventoryModule {
                         group.name,
                         group.cuid,
                         "UserGroup",
+                        new LinkedHashSet<Integer>(),
                         ""));
             }
         }
+
+        addMembershipsFromPrincipalGroups(principalsById, groupsById);
 
         List<UserGroupInventoryRecord> records = new ArrayList<>();
         for (GroupReference group : groups) {
@@ -87,15 +90,31 @@ public class UserGroupInventoryModule {
 
         for (Object object : objects) {
             IInfoObject infoObject = (IInfoObject) object;
+            Set<Integer> parentGroupIds = new LinkedHashSet<>();
+            collectIds(getProperties(infoObject.properties(), "SI_GROUPS"), parentGroupIds);
             principalsById.put(infoObject.getID(), new PrincipalReference(
                     infoObject.getID(),
                     infoObject.getTitle(),
                     infoObject.getCUID(),
                     infoObject.getKind(),
+                    parentGroupIds,
                     getDisabled(infoObject.properties())));
         }
 
         return principalsById;
+    }
+
+    private void addMembershipsFromPrincipalGroups(
+            Map<Integer, PrincipalReference> principalsById,
+            Map<Integer, GroupReference> groupsById) {
+        for (PrincipalReference principal : principalsById.values()) {
+            for (Integer parentGroupId : principal.parentGroupIds) {
+                GroupReference parentGroup = groupsById.get(parentGroupId);
+                if (parentGroup != null && parentGroup.id != principal.id) {
+                    parentGroup.memberIds.add(principal.id);
+                }
+            }
+        }
     }
 
     private GroupReference toGroupReference(IInfoObject infoObject) throws SDKException {
@@ -312,9 +331,11 @@ public class UserGroupInventoryModule {
     }
 
     private static final class PrincipalReference {
+        private final int id;
         private final String name;
         private final String cuid;
         private final String kind;
+        private final Set<Integer> parentGroupIds;
         private final String disabled;
 
         private PrincipalReference(
@@ -322,10 +343,13 @@ public class UserGroupInventoryModule {
                 String name,
                 String cuid,
                 String kind,
+                Set<Integer> parentGroupIds,
                 String disabled) {
+            this.id = id;
             this.name = name;
             this.cuid = cuid;
             this.kind = kind;
+            this.parentGroupIds = parentGroupIds;
             this.disabled = disabled;
         }
 

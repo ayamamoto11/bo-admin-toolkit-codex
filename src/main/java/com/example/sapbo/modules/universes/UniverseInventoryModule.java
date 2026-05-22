@@ -489,6 +489,10 @@ public class UniverseInventoryModule {
             try {
                 return String.valueOf(properties.getInt(String.valueOf(keyObject)));
             } catch (RuntimeException intException) {
+                IProperty property = properties.getProperty(keyObject);
+                if (property != null && property.getValue() != null) {
+                    return String.valueOf(property.getValue()).trim();
+                }
                 return "";
             }
         }

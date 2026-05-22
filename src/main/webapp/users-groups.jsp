@@ -37,7 +37,8 @@
                     <tr>
                         <th>Object Type</th>
                         <th>Object ID</th>
-                        <th>Object Name</th>
+                        <th>Username</th>
+                        <th>Full Name</th>
                         <th>Object CUID</th>
                         <th>Parent Group ID</th>
                         <th>Parent Group Name</th>
@@ -50,7 +51,8 @@
                         <tr>
                             <td><%= HtmlEscaper.escape(record.getObjectType()) %></td>
                             <td><%= record.getObjectId() %></td>
-                            <td><%= HtmlEscaper.escape(record.getObjectName()) %></td>
+                            <td><%= HtmlEscaper.escape(record.getUsername()) %></td>
+                            <td><%= HtmlEscaper.escape(record.getFullName()) %></td>
                             <td><%= HtmlEscaper.escape(record.getObjectCuid()) %></td>
                             <td><%= HtmlEscaper.escape(record.getParentGroupId()) %></td>
                             <td><%= HtmlEscaper.escape(record.getParentGroupName()) %></td>

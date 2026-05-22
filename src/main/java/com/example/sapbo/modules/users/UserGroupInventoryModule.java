@@ -21,15 +21,20 @@ import java.util.Set;
 
 public class UserGroupInventoryModule {
     private static final String USER_GROUPS_PROPERTY = "SI_USERGROUPS";
-    private static final Integer USER_GROUPS_PROPERTY_ID = Integer.valueOf(16780918);
+    private static final Integer[] USER_GROUPS_PROPERTY_IDS = {
+            Integer.valueOf(16777256),
+            Integer.valueOf(16780918),
+            Integer.valueOf(16777726)
+    };
+    private static final String PROPERTY_TOTAL = "SI_TOTAL";
+    private static final String PROPERTY_TOTAL_ID = "16777248";
 
     private static final String GROUP_QUERY = "SELECT TOP 100000 * "
             + "FROM CI_SYSTEMOBJECTS "
             + "WHERE SI_KIND = 'UserGroup' "
             + "ORDER BY SI_NAME";
 
-    private static final String USER_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_USERFULLNAME, SI_CUID, "
-            + "SI_USERGROUPS, SI_DISABLED "
+    private static final String USER_QUERY = "SELECT TOP 100000 * "
             + "FROM CI_SYSTEMOBJECTS "
             + "WHERE SI_KIND = 'User' "
             + "ORDER BY SI_NAME";
@@ -95,7 +100,7 @@ public class UserGroupInventoryModule {
         for (Object object : objects) {
             IInfoObject infoObject = (IInfoObject) object;
             Set<Integer> parentGroupIds = new LinkedHashSet<>();
-            collectIds(getUserGroupsProperties(infoObject.properties()), parentGroupIds);
+            collectUserGroupIds(infoObject.properties(), parentGroupIds);
             principalsById.put(infoObject.getID(), new PrincipalReference(
                     infoObject.getID(),
                     getUserDisplayName(infoObject),
@@ -139,7 +144,7 @@ public class UserGroupInventoryModule {
         for (String containerName : MEMBER_CONTAINER_NAMES) {
             collectIds(getProperties(properties, containerName), memberIds);
         }
-        collectIds(getUserGroupsProperties(properties), memberIds);
+        collectUserGroupIds(properties, memberIds);
         collectMemberIdsFromNamedContainers(properties, memberIds, 0);
         memberIds.remove(infoObject.getID());
 
@@ -170,15 +175,29 @@ public class UserGroupInventoryModule {
         List<UserGroupInventoryRecord> records = new ArrayList<>();
         for (Integer parentGroupId : principal.parentGroupIds) {
             GroupReference parentGroup = groupsById.get(parentGroupId);
+            if (parentGroup == null) {
+                continue;
+            }
             records.add(new UserGroupInventoryRecord(
                     principal.getDisplayType(),
                     principal.id,
                     principal.name,
                     principal.cuid,
                     String.valueOf(parentGroupId),
-                    parentGroup == null ? "" : parentGroup.name,
-                    parentGroup == null ? String.valueOf(parentGroupId)
-                            : buildGroupPath(parentGroup.id, groupsById, new HashSet<Integer>()),
+                    parentGroup.name,
+                    buildGroupPath(parentGroup.id, groupsById, new HashSet<Integer>()),
+                    principal.disabled));
+        }
+
+        if (records.isEmpty()) {
+            return Collections.singletonList(new UserGroupInventoryRecord(
+                    principal.getDisplayType(),
+                    principal.id,
+                    principal.name,
+                    principal.cuid,
+                    "",
+                    "",
+                    "",
                     principal.disabled));
         }
 
@@ -254,6 +273,9 @@ public class UserGroupInventoryModule {
         }
 
         for (Object keyObject : properties.keySet()) {
+            if (isTotalProperty(keyObject)) {
+                continue;
+            }
             IProperty property = properties.getProperty(keyObject);
             if (property != null && property.isContainer()) {
                 collectIds(getProperties(properties, keyObject), ids);
@@ -310,13 +332,16 @@ public class UserGroupInventoryModule {
         return null;
     }
 
-    private IProperties getUserGroupsProperties(IProperties properties) {
-        IProperties userGroups = getProperties(properties, USER_GROUPS_PROPERTY);
-        if (userGroups != null) {
-            return userGroups;
-        }
+    private boolean isTotalProperty(Object keyObject) {
+        String key = String.valueOf(keyObject);
+        return PROPERTY_TOTAL.equalsIgnoreCase(key) || PROPERTY_TOTAL_ID.equals(key);
+    }
 
-        return getProperties(properties, USER_GROUPS_PROPERTY_ID);
+    private void collectUserGroupIds(IProperties properties, Set<Integer> ids) {
+        collectIds(getProperties(properties, USER_GROUPS_PROPERTY), ids);
+        for (Integer propertyId : USER_GROUPS_PROPERTY_IDS) {
+            collectIds(getProperties(properties, propertyId), ids);
+        }
     }
 
     private String safeGetString(IProperties properties, Object keyObject) {

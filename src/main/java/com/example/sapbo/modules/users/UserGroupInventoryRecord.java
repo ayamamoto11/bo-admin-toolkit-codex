@@ -5,7 +5,8 @@ import java.io.Serializable;
 public class UserGroupInventoryRecord implements Serializable {
     private final String objectType;
     private final int objectId;
-    private final String objectName;
+    private final String username;
+    private final String fullName;
     private final String objectCuid;
     private final String parentGroupId;
     private final String parentGroupName;
@@ -15,7 +16,8 @@ public class UserGroupInventoryRecord implements Serializable {
     public UserGroupInventoryRecord(
             String objectType,
             int objectId,
-            String objectName,
+            String username,
+            String fullName,
             String objectCuid,
             String parentGroupId,
             String parentGroupName,
@@ -23,7 +25,8 @@ public class UserGroupInventoryRecord implements Serializable {
             String disabled) {
         this.objectType = objectType;
         this.objectId = objectId;
-        this.objectName = objectName;
+        this.username = username;
+        this.fullName = fullName;
         this.objectCuid = objectCuid;
         this.parentGroupId = parentGroupId;
         this.parentGroupName = parentGroupName;
@@ -39,8 +42,12 @@ public class UserGroupInventoryRecord implements Serializable {
         return objectId;
     }
 
-    public String getObjectName() {
-        return objectName;
+    public String getUsername() {
+        return username;
+    }
+
+    public String getFullName() {
+        return fullName;
     }
 
     public String getObjectCuid() {

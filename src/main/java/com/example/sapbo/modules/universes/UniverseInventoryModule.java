@@ -113,6 +113,12 @@ public class UniverseInventoryModule {
             }
         }
 
+        for (ConnectionReference connection : queryConnectionsFromRelatedMetadataFile(universe, folderPathResolver)) {
+            if (connectionKeys.add(connection.key())) {
+                connections.add(connection);
+            }
+        }
+
         return connections;
     }
 
@@ -176,6 +182,41 @@ public class UniverseInventoryModule {
         return toConnectionReferences(folderPathResolver.infoStore.query(query));
     }
 
+    private List<ConnectionReference> queryConnectionsFromRelatedMetadataFile(
+            IInfoObject universe,
+            FolderPathResolver folderPathResolver) throws SDKException {
+        if (!isDslUniverse(universe)) {
+            return Collections.emptyList();
+        }
+
+        String query = "SELECT TOP 20 * "
+                + "FROM CI_APPOBJECTS "
+                + "WHERE SI_KIND = 'DSL.MetaDataFile' "
+                + "AND SI_NAME = '" + escapeCmsQueryValue(universe.getTitle()) + "'";
+        IInfoObjects metadataFiles = folderPathResolver.infoStore.query(query);
+        if (metadataFiles.size() == 0) {
+            return Collections.emptyList();
+        }
+
+        List<ConnectionReference> connections = new ArrayList<>();
+        Set<String> connectionKeys = new LinkedHashSet<>();
+        for (Object metadataFileObject : metadataFiles) {
+            IInfoObject metadataFile = (IInfoObject) metadataFileObject;
+            for (ConnectionReference connection : queryConnectionsFromProperties(metadataFile, folderPathResolver)) {
+                if (connectionKeys.add(connection.key())) {
+                    connections.add(connection);
+                }
+            }
+            for (ConnectionReference connection : queryConnectionRelationships(metadataFile.getID(), folderPathResolver)) {
+                if (connectionKeys.add(connection.key())) {
+                    connections.add(connection);
+                }
+            }
+        }
+
+        return connections;
+    }
+
     private void collectConnectionIds(
             IProperties properties,
             Set<String> connectionIds,
@@ -213,10 +254,6 @@ public class UniverseInventoryModule {
 
         for (Object object : objects) {
             IInfoObject infoObject = (IInfoObject) object;
-            if (!looksLikeConnection(infoObject)) {
-                continue;
-            }
-
             Map<String, String> metadata = new HashMap<>();
             flattenProperties("", infoObject.properties(), metadata, 0);
             connections.add(new ConnectionReference(
@@ -347,6 +384,15 @@ public class UniverseInventoryModule {
         }
 
         return kind == null ? "" : kind;
+    }
+
+    private boolean isDslUniverse(IInfoObject universe) throws SDKException {
+        String kind = universe.getKind();
+        return kind != null && kind.toLowerCase(Locale.ENGLISH).contains("dsl");
+    }
+
+    private String escapeCmsQueryValue(String value) {
+        return value == null ? "" : value.replace("'", "''");
     }
 
     private String buildIdPredicate(Set<String> ids) {

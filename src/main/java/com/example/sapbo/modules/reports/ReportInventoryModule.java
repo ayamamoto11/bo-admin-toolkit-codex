@@ -66,7 +66,7 @@ public class ReportInventoryModule {
 
         for (Object reportObject : reports) {
             IInfoObject report = (IInfoObject) reportObject;
-            inventory.add(toRecord(report, folderPathResolver));
+            inventory.addAll(toRecords(report, folderPathResolver));
         }
 
         return inventory;
@@ -93,13 +93,15 @@ public class ReportInventoryModule {
                 report.getUniverseId());
     }
 
-    private ReportInventoryRecord toRecord(IInfoObject report, FolderPathResolver folderPathResolver)
+    private List<ReportInventoryRecord> toRecords(IInfoObject report, FolderPathResolver folderPathResolver)
             throws SDKException {
         IProperties properties = report.properties();
         int parentFolderId = getIntProperty(properties, "SI_PARENTID");
-        UniverseReference universeReference = getUniverseReference(report, folderPathResolver);
+        List<UniverseReference> universeReferences = getUniverseReferences(report, folderPathResolver);
+        List<ReportInventoryRecord> records = new ArrayList<>();
 
-        return new ReportInventoryRecord(
+        for (UniverseReference universeReference : universeReferences) {
+            records.add(new ReportInventoryRecord(
                 report.getTitle(),
                 report.getID(),
                 report.getCUID(),
@@ -107,80 +109,75 @@ public class ReportInventoryModule {
                 parentFolderId,
                 folderPathResolver.resolve(parentFolderId),
                 universeReference.getDataProviderType(),
+                universeReference.dataProviderName,
                 universeReference.id,
                 universeReference.name,
                 universeReference.type,
                 universeReference.cuid,
-                universeReference.path);
+                universeReference.path));
+        }
+
+        return records;
     }
 
-    private UniverseReference getUniverseReference(IInfoObject report, FolderPathResolver folderPathResolver)
+    private List<UniverseReference> getUniverseReferences(IInfoObject report, FolderPathResolver folderPathResolver)
             throws SDKException {
         UniverseReference relationshipUniverse = readUniverseRelationships(report, folderPathResolver);
         if (!relationshipUniverse.isEmpty()) {
-            return relationshipUniverse;
+            return Collections.singletonList(relationshipUniverse);
         }
 
         IProperties properties = report.properties();
-        UniverseReference dslUniverse = readUniverseBag(properties, "SI_DSL_UNIVERSE", "UNX", folderPathResolver);
-        if (!dslUniverse.isEmpty()) {
-            return dslUniverse;
+        List<UniverseReference> dslUniverses = readUniverseBag(
+                properties,
+                "SI_DSL_UNIVERSE",
+                "UNX",
+                folderPathResolver);
+        if (!dslUniverses.isEmpty()) {
+            return dslUniverses;
         }
 
-        UniverseReference universe = readUniverseBag(properties, "SI_UNIVERSE", "UNV", folderPathResolver);
-        if (!universe.isEmpty()) {
-            return universe;
+        List<UniverseReference> universes = readUniverseBag(
+                properties,
+                "SI_UNIVERSE",
+                "UNV",
+                folderPathResolver);
+        if (!universes.isEmpty()) {
+            return universes;
         }
 
-        UniverseReference webiDocPropertiesUniverse = readWebiDocPropertiesUniverse(properties, folderPathResolver);
-        if (!webiDocPropertiesUniverse.isEmpty()) {
-            return webiDocPropertiesUniverse;
+        List<UniverseReference> webiDocPropertiesUniverses =
+                readWebiDocPropertiesUniverses(properties, folderPathResolver);
+        if (!webiDocPropertiesUniverses.isEmpty()) {
+            return webiDocPropertiesUniverses;
         }
 
-        return UniverseReference.freehandSqlOrOther();
+        return Collections.singletonList(UniverseReference.freehandSqlOrOther());
     }
 
-    private UniverseReference readWebiDocPropertiesUniverse(
+    private List<UniverseReference> readWebiDocPropertiesUniverses(
             IProperties properties,
             FolderPathResolver folderPathResolver) throws SDKException {
-        Set<String> dataSourceNames = getWebiDocDataSourceNames(properties);
-        if (dataSourceNames.isEmpty()) {
-            return UniverseReference.empty();
+        List<WebiDataProvider> dataProviders = getWebiDocDataProviders(properties);
+        if (dataProviders.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        Set<String> ids = new LinkedHashSet<>();
-        Set<String> names = new LinkedHashSet<>();
-        Set<String> cuids = new LinkedHashSet<>();
-        Set<String> types = new LinkedHashSet<>();
-        Set<String> paths = new LinkedHashSet<>();
+        List<UniverseReference> references = new ArrayList<>();
 
-        for (String dataSourceName : dataSourceNames) {
-            UniverseReference reference = queryUniverseByName(dataSourceName, folderPathResolver);
+        for (WebiDataProvider dataProvider : dataProviders) {
+            UniverseReference reference = queryUniverseByName(dataProvider.dataSourceName, folderPathResolver);
             if (reference.isEmpty()) {
                 continue;
             }
-
-            addCsvValues(ids, reference.id);
-            addCsvValues(names, reference.name);
-            addCsvValues(cuids, reference.cuid);
-            addCsvValues(types, reference.type);
-            addCsvValues(paths, reference.path);
+            references.add(reference.withDataProviderName(dataProvider.dataProviderName));
         }
 
-        if (names.isEmpty() && cuids.isEmpty()) {
-            return UniverseReference.empty();
-        }
-
-        return new UniverseReference(
-                String.join(", ", ids),
-                String.join(", ", names),
-                String.join(", ", types),
-                String.join(", ", cuids),
-                String.join(", ", paths));
+        return references;
     }
 
-    private Set<String> getWebiDocDataSourceNames(IProperties properties) {
-        Set<String> dataSourceNames = new LinkedHashSet<>();
+    private List<WebiDataProvider> getWebiDocDataProviders(IProperties properties) {
+        List<WebiDataProvider> dataProviders = new ArrayList<>();
 
         for (Object keyObject : properties.keySet()) {
             String propertyValue = safeGetString(properties, keyObject);
@@ -188,14 +185,14 @@ public class ReportInventoryModule {
                 continue;
             }
 
-            dataSourceNames.addAll(parseWebiDocDataSourceNames(propertyValue));
+            dataProviders.addAll(parseWebiDocDataProviders(propertyValue));
         }
 
-        return dataSourceNames;
+        return dataProviders;
     }
 
-    private Set<String> parseWebiDocDataSourceNames(String xml) {
-        Set<String> dataSourceNames = new LinkedHashSet<>();
+    private List<WebiDataProvider> parseWebiDocDataProviders(String xml) {
+        List<WebiDataProvider> dataProviders = new ArrayList<>();
 
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -203,20 +200,23 @@ public class ReportInventoryModule {
             factory.setExpandEntityReferences(false);
 
             Document document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
-            NodeList dataProviders = document.getElementsByTagName("WEBI_DP");
+            NodeList dataProviderNodes = document.getElementsByTagName("WEBI_DP");
 
-            for (int index = 0; index < dataProviders.getLength(); index++) {
-                Element dataProvider = (Element) dataProviders.item(index);
+            for (int index = 0; index < dataProviderNodes.getLength(); index++) {
+                Element dataProvider = (Element) dataProviderNodes.item(index);
                 String dataSourceName = dataProvider.getAttribute("DSNAME");
                 if (dataSourceName != null && !dataSourceName.trim().isEmpty()) {
-                    dataSourceNames.add(dataSourceName.trim());
+                    String dataProviderName = dataProvider.getAttribute("DPNAME");
+                    dataProviders.add(new WebiDataProvider(
+                            dataProviderName == null ? "" : dataProviderName.trim(),
+                            dataSourceName.trim()));
                 }
             }
         } catch (Exception exception) {
-            return Collections.emptySet();
+            return Collections.emptyList();
         }
 
-        return dataSourceNames;
+        return dataProviders;
     }
 
     private UniverseReference queryUniverseByName(String universeName, FolderPathResolver folderPathResolver)
@@ -248,6 +248,7 @@ public class ReportInventoryModule {
         }
 
         return new UniverseReference(
+                "",
                 String.join(", ", ids),
                 String.join(", ", names),
                 String.join(", ", types),
@@ -312,6 +313,7 @@ public class ReportInventoryModule {
         }
 
         return new UniverseReference(
+                "",
                 String.join(", ", ids),
                 String.join(", ", names),
                 String.join(", ", types),
@@ -334,14 +336,14 @@ public class ReportInventoryModule {
         return defaultType;
     }
 
-    private UniverseReference readUniverseBag(
+    private List<UniverseReference> readUniverseBag(
             IProperties properties,
             String propertyName,
             String universeType,
             FolderPathResolver folderPathResolver) throws SDKException {
         IProperties universeBag = getUniverseBagProperties(properties, propertyName);
         if (universeBag == null) {
-            return UniverseReference.empty();
+            return Collections.emptyList();
         }
 
         Set<String> ids = new LinkedHashSet<>();
@@ -349,18 +351,22 @@ public class ReportInventoryModule {
         Set<String> cuids = new LinkedHashSet<>();
 
         collectUniverseValues(universeBag, ids, names, cuids);
-
-        UniverseReference universeById = queryUniverseByIds(ids, universeType, folderPathResolver);
-        if (!universeById.isEmpty()) {
-            return universeById;
+        if (ids.isEmpty() && names.isEmpty() && cuids.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        return new UniverseReference(
+        List<UniverseReference> universesById = queryUniverseByIds(ids, universeType, folderPathResolver);
+        if (!universesById.isEmpty()) {
+            return addGeneratedDataProviderNames(universesById);
+        }
+
+        return Collections.singletonList(new UniverseReference(
+                "",
                 String.join(", ", ids),
                 String.join(", ", names),
                 names.isEmpty() ? "" : universeType,
                 String.join(", ", cuids),
-                "");
+                ""));
     }
 
     private IProperties getUniverseBagProperties(IProperties properties, String propertyName) {
@@ -404,7 +410,7 @@ public class ReportInventoryModule {
         }
     }
 
-    private UniverseReference queryUniverseByIds(
+    private List<UniverseReference> queryUniverseByIds(
             Set<String> universeIds,
             String defaultType,
             FolderPathResolver folderPathResolver) throws SDKException {
@@ -416,7 +422,7 @@ public class ReportInventoryModule {
         }
 
         if (numericUniverseIds.isEmpty()) {
-            return UniverseReference.empty();
+            return Collections.emptyList();
         }
 
         String query = "SELECT TOP 100 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID "
@@ -426,30 +432,36 @@ public class ReportInventoryModule {
         IInfoObjects universes = folderPathResolver.infoStore.query(query);
 
         if (universes.size() == 0) {
-            return UniverseReference.empty();
+            return Collections.emptyList();
         }
 
-        Set<String> ids = new LinkedHashSet<>();
-        Set<String> names = new LinkedHashSet<>();
-        Set<String> cuids = new LinkedHashSet<>();
-        Set<String> types = new LinkedHashSet<>();
-        Set<String> paths = new LinkedHashSet<>();
+        List<UniverseReference> references = new ArrayList<>();
 
         for (Object universeObject : universes) {
             IInfoObject universe = (IInfoObject) universeObject;
-            ids.add(String.valueOf(universe.getID()));
-            names.add(universe.getTitle());
-            cuids.add(universe.getCUID());
-            types.add(getUniverseType(universe, defaultType));
-            paths.add(folderPathResolver.resolve(universe.properties().getInt("SI_PARENTID")));
+            references.add(new UniverseReference(
+                    "",
+                    String.valueOf(universe.getID()),
+                    universe.getTitle(),
+                    getUniverseType(universe, defaultType),
+                    universe.getCUID(),
+                    folderPathResolver.resolve(universe.properties().getInt("SI_PARENTID"))));
         }
 
-        return new UniverseReference(
-                String.join(", ", ids),
-                String.join(", ", names),
-                String.join(", ", types),
-                String.join(", ", cuids),
-                String.join(", ", paths));
+        return references;
+    }
+
+    private List<UniverseReference> addGeneratedDataProviderNames(List<UniverseReference> references) {
+        if (references.size() <= 1) {
+            return references;
+        }
+
+        List<UniverseReference> namedReferences = new ArrayList<>();
+        for (int index = 0; index < references.size(); index++) {
+            namedReferences.add(references.get(index).withDataProviderName("Data Provider " + (index + 1)));
+        }
+
+        return namedReferences;
     }
 
     private String buildIdPredicate(Set<String> universeIds) {
@@ -533,13 +545,15 @@ public class ReportInventoryModule {
     }
 
     private static final class UniverseReference {
+        private final String dataProviderName;
         private final String id;
         private final String name;
         private final String type;
         private final String cuid;
         private final String path;
 
-        private UniverseReference(String id, String name, String type, String cuid, String path) {
+        private UniverseReference(String dataProviderName, String id, String name, String type, String cuid, String path) {
+            this.dataProviderName = dataProviderName;
             this.id = id;
             this.name = name;
             this.type = type;
@@ -548,11 +562,15 @@ public class ReportInventoryModule {
         }
 
         private static UniverseReference empty() {
-            return new UniverseReference("", "", "", "", "");
+            return new UniverseReference("", "", "", "", "", "");
         }
 
         private static UniverseReference freehandSqlOrOther() {
-            return new UniverseReference("", "", "", "", "");
+            return new UniverseReference("", "", "", "", "", "");
+        }
+
+        private UniverseReference withDataProviderName(String dataProviderName) {
+            return new UniverseReference(dataProviderName, id, name, type, cuid, path);
         }
 
         private static UniverseReference merge(UniverseReference first, UniverseReference second) {
@@ -564,6 +582,7 @@ public class ReportInventoryModule {
             }
 
             return new UniverseReference(
+                    joinValues(first.dataProviderName, second.dataProviderName),
                     joinValues(first.id, second.id),
                     joinValues(first.name, second.name),
                     joinValues(first.type, second.type),
@@ -588,6 +607,16 @@ public class ReportInventoryModule {
 
         private String getDataProviderType() {
             return isEmpty() ? "Freehand SQL / Other" : "Universe";
+        }
+    }
+
+    private static final class WebiDataProvider {
+        private final String dataProviderName;
+        private final String dataSourceName;
+
+        private WebiDataProvider(String dataProviderName, String dataSourceName) {
+            this.dataProviderName = dataProviderName;
+            this.dataSourceName = dataSourceName;
         }
     }
 

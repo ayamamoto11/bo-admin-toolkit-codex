@@ -25,10 +25,11 @@ public class UserGroupInventoryModule {
             + "WHERE SI_KIND = 'UserGroup' "
             + "ORDER BY SI_NAME";
 
-    private static final String PRINCIPAL_QUERY = "SELECT TOP 100000 * "
+    private static final String USER_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_USERFULLNAME, SI_CUID, "
+            + "SI_USERGROUPS, SI_DISABLED "
             + "FROM CI_SYSTEMOBJECTS "
-            + "WHERE SI_KIND IN ('User', 'UserGroup') "
-            + "ORDER BY SI_KIND, SI_NAME";
+            + "WHERE SI_KIND = 'User' "
+            + "ORDER BY SI_NAME";
 
     private static final String[] MEMBER_CONTAINER_NAMES = {
             "SI_USERS",
@@ -49,7 +50,7 @@ public class UserGroupInventoryModule {
     public List<UserGroupInventoryRecord> findUsersAndGroups() throws SDKException {
         IEnterpriseSession session = connectionManager.getSession();
         IInfoStore infoStore = (IInfoStore) session.getService("InfoStore");
-        Map<Integer, PrincipalReference> principalsById = queryPrincipals(infoStore);
+        Map<Integer, PrincipalReference> principalsById = queryUsers(infoStore);
         IInfoObjects groupObjects = infoStore.query(GROUP_QUERY);
 
         if (groupObjects.size() == 0) {
@@ -84,24 +85,33 @@ public class UserGroupInventoryModule {
         return records;
     }
 
-    private Map<Integer, PrincipalReference> queryPrincipals(IInfoStore infoStore) throws SDKException {
-        IInfoObjects objects = infoStore.query(PRINCIPAL_QUERY);
+    private Map<Integer, PrincipalReference> queryUsers(IInfoStore infoStore) throws SDKException {
+        IInfoObjects objects = infoStore.query(USER_QUERY);
         Map<Integer, PrincipalReference> principalsById = new HashMap<>();
 
         for (Object object : objects) {
             IInfoObject infoObject = (IInfoObject) object;
             Set<Integer> parentGroupIds = new LinkedHashSet<>();
-            collectIds(getProperties(infoObject.properties(), "SI_GROUPS"), parentGroupIds);
+            collectIds(getProperties(infoObject.properties(), "SI_USERGROUPS"), parentGroupIds);
             principalsById.put(infoObject.getID(), new PrincipalReference(
                     infoObject.getID(),
-                    infoObject.getTitle(),
+                    getUserDisplayName(infoObject),
                     infoObject.getCUID(),
-                    infoObject.getKind(),
+                    "User",
                     parentGroupIds,
                     getDisabled(infoObject.properties())));
         }
 
         return principalsById;
+    }
+
+    private String getUserDisplayName(IInfoObject infoObject) throws SDKException {
+        String fullName = safeGetString(infoObject.properties(), "SI_USERFULLNAME");
+        if (fullName.isEmpty() || fullName.equals(infoObject.getTitle())) {
+            return infoObject.getTitle();
+        }
+
+        return infoObject.getTitle() + " - " + fullName;
     }
 
     private void addMembershipsFromPrincipalGroups(
@@ -302,7 +312,11 @@ public class UserGroupInventoryModule {
         try {
             return properties.getString(String.valueOf(keyObject));
         } catch (RuntimeException exception) {
-            return "";
+            try {
+                return String.valueOf(properties.getInt(String.valueOf(keyObject)));
+            } catch (RuntimeException intException) {
+                return "";
+            }
         }
     }
 

@@ -28,6 +28,8 @@ public class UserDebugServlet extends HttpServlet {
             int userId = Integer.parseInt(request.getParameter("userId"));
             UserDebugModule module = new UserDebugModule(connectionManager);
             DebugResult debugResult = module.inspectUser(userId);
+            request.getSession().setAttribute("objectDebugTitle", "User Debug");
+            request.getSession().setAttribute("objectDebugResult", debugResult);
             request.setAttribute("debugTitle", "User Debug");
             request.setAttribute("debugResult", debugResult);
             request.setAttribute("cms", credentials.getCms());

@@ -20,9 +20,11 @@ import java.util.Set;
 
 public class UniverseInventoryModule {
     private static final String UNIVERSE_QUERY = "SELECT TOP 100000 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID, "
-            + "SI_CONNECTION, SI_DATACONNECTION, SI_DATACONNECTIONS "
+            + "SI_SPECIFIC_KIND, SI_CONNECTION, SI_DATACONNECTION, SI_DATACONNECTIONS, "
+            + "SI_SL_UNIVERSE_TO_CONNECTIONS "
             + "FROM CI_APPOBJECTS "
             + "WHERE SI_KIND IN ('Universe', 'DSL.Universe', 'DSL.MetaDataFile') "
+            + "OR SI_SPECIFIC_KIND = 'DSL.Universe' "
             + "ORDER BY SI_NAME";
 
     private static final String[] CONNECTION_RELATIONSHIPS = {
@@ -101,6 +103,12 @@ public class UniverseInventoryModule {
         List<ConnectionReference> connections = new ArrayList<>();
         Set<String> connectionKeys = new LinkedHashSet<>();
 
+        for (ConnectionReference connection : querySlUniverseConnections(universe, folderPathResolver)) {
+            if (connectionKeys.add(connection.key())) {
+                connections.add(connection);
+            }
+        }
+
         for (ConnectionReference connection : queryConnectionRelationships(universe.getID(), folderPathResolver)) {
             if (connectionKeys.add(connection.key())) {
                 connections.add(connection);
@@ -120,6 +128,26 @@ public class UniverseInventoryModule {
         }
 
         return connections;
+    }
+
+    private List<ConnectionReference> querySlUniverseConnections(
+            IInfoObject universe,
+            FolderPathResolver folderPathResolver) throws SDKException {
+        if (!isDslUniverse(universe)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> connectionIds = new LinkedHashSet<>();
+        collectIds(getProperties(universe.properties(), "SI_SL_UNIVERSE_TO_CONNECTIONS"), connectionIds);
+
+        if (connectionIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String query = "SELECT TOP 100 SI_ID, SI_NAME, SI_CUID, SI_KIND, SI_PARENTID, SI_DESCRIPTION "
+                + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
+                + "WHERE " + buildIdPredicate(connectionIds);
+        return toConnectionReferences(folderPathResolver.infoStore.query(query));
     }
 
     private List<ConnectionReference> queryConnectionRelationships(
@@ -246,6 +274,22 @@ public class UniverseInventoryModule {
             if (insideConnectionContainer || connectionKey) {
                 addPositiveInteger(connectionIds, safeGetString(properties, keyObject));
             }
+        }
+    }
+
+    private void collectIds(IProperties properties, Set<String> ids) {
+        if (properties == null) {
+            return;
+        }
+
+        for (Object keyObject : properties.keySet()) {
+            IProperty property = properties.getProperty(keyObject);
+            if (property != null && property.isContainer()) {
+                collectIds(getProperties(properties, keyObject), ids);
+                continue;
+            }
+
+            addPositiveInteger(ids, safeGetString(properties, keyObject));
         }
     }
 

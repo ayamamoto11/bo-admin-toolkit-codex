@@ -64,6 +64,39 @@ input {
     font-size: 16px;
 }
 
+select {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #bcccdc;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #ffffff;
+    font-size: 16px;
+}
+
+.options-form {
+    margin-bottom: 22px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+
+.checkbox-label {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-height: 42px;
+}
+
+.checkbox-label input {
+    width: auto;
+    min-height: 0;
+}
+
 button,
 .button {
     display: inline-flex;

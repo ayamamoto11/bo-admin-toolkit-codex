@@ -21,7 +21,7 @@
             <p>CMS: <%= HtmlEscaper.escape(request.getAttribute("cms")) %></p>
         </div>
         <div class="actions">
-            <a class="button secondary" href="${pageContext.request.contextPath}/index.jsp">New Query</a>
+            <a class="button secondary" href="${pageContext.request.contextPath}/menu.jsp">Modules</a>
             <a class="button" href="${pageContext.request.contextPath}/reports/export">Export Excel</a>
         </div>
     </section>

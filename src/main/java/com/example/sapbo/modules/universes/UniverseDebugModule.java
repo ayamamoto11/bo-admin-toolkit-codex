@@ -19,6 +19,7 @@ import java.util.Set;
 public class UniverseDebugModule {
     private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
     private static final Integer[] SL_UNIVERSE_CONNECTIONS_PROPERTY_IDS = {
+            Integer.valueOf(268435559),
             Integer.valueOf(268435564),
             Integer.valueOf(268435598)
     };

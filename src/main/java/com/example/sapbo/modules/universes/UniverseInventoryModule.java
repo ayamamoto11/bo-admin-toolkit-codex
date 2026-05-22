@@ -133,10 +133,6 @@ public class UniverseInventoryModule {
     private List<ConnectionReference> querySlUniverseConnections(
             IInfoObject universe,
             FolderPathResolver folderPathResolver) throws SDKException {
-        if (!isDslUniverse(universe)) {
-            return Collections.emptyList();
-        }
-
         Set<String> connectionIds = new LinkedHashSet<>();
         collectIds(getProperties(universe.properties(), "SI_SL_UNIVERSE_TO_CONNECTIONS"), connectionIds);
 
@@ -432,7 +428,9 @@ public class UniverseInventoryModule {
 
     private boolean isDslUniverse(IInfoObject universe) throws SDKException {
         String kind = universe.getKind();
-        return kind != null && kind.toLowerCase(Locale.ENGLISH).contains("dsl");
+        String specificKind = safeGetString(universe.properties(), "SI_SPECIFIC_KIND");
+        return (kind != null && kind.toLowerCase(Locale.ENGLISH).contains("dsl"))
+                || "DSL.Universe".equalsIgnoreCase(specificKind);
     }
 
     private String escapeCmsQueryValue(String value) {
@@ -488,7 +486,11 @@ public class UniverseInventoryModule {
         try {
             return properties.getString(String.valueOf(keyObject));
         } catch (RuntimeException exception) {
-            return "";
+            try {
+                return String.valueOf(properties.getInt(String.valueOf(keyObject)));
+            } catch (RuntimeException intException) {
+                return "";
+            }
         }
     }
 

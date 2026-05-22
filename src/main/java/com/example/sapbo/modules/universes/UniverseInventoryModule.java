@@ -142,6 +142,10 @@ public class UniverseInventoryModule {
             IInfoObject universe,
             FolderPathResolver folderPathResolver) throws SDKException {
         Set<String> connectionIds = new LinkedHashSet<>();
+        IInfoObject slUniverse = querySlUniverse(universe.getID(), folderPathResolver.infoStore);
+        if (slUniverse != null) {
+            collectIds(getSlUniverseConnectionsProperties(slUniverse.properties()), connectionIds);
+        }
         collectIds(getSlUniverseConnectionsProperties(universe.properties()), connectionIds);
 
         if (connectionIds.isEmpty()) {
@@ -152,6 +156,17 @@ public class UniverseInventoryModule {
                 + "FROM CI_INFOOBJECTS, CI_APPOBJECTS, CI_SYSTEMOBJECTS "
                 + "WHERE " + buildIdPredicate(connectionIds);
         return toConnectionReferences(folderPathResolver.infoStore.query(query));
+    }
+
+    private IInfoObject querySlUniverse(int universeId, IInfoStore infoStore) throws SDKException {
+        IInfoObjects universes = infoStore.query("SELECT TOP 1 SI_NAME, SI_ID, SI_SL_UNIVERSE_TO_CONNECTIONS "
+                + "FROM CI_APPOBJECTS "
+                + "WHERE SI_KIND = 'DSL.Universe' AND SI_ID = " + universeId);
+        if (universes.size() == 0) {
+            return null;
+        }
+
+        return (IInfoObject) universes.get(0);
     }
 
     private List<ConnectionReference> queryConnectionRelationships(

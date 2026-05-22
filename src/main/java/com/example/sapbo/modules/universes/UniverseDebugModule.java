@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Set;
 
 public class UniverseDebugModule {
+    private static final String SL_UNIVERSE_CONNECTIONS_PROPERTY = "SI_SL_UNIVERSE_TO_CONNECTIONS";
+    private static final Integer SL_UNIVERSE_CONNECTIONS_PROPERTY_ID = Integer.valueOf(268435598);
+
     private final ConnectionManager connectionManager;
 
     public UniverseDebugModule(ConnectionManager connectionManager) {
@@ -59,7 +62,7 @@ public class UniverseDebugModule {
 
     private String buildConnectionLookupQuery(IProperties universeProperties) {
         Set<String> connectionIds = new LinkedHashSet<>();
-        collectIds(getProperties(universeProperties, "SI_SL_UNIVERSE_TO_CONNECTIONS"), connectionIds);
+        collectIds(getSlUniverseConnectionsProperties(universeProperties), connectionIds);
 
         if (connectionIds.isEmpty()) {
             return "SELECT TOP 1 SI_ID, SI_NAME, SI_CUID, SI_KIND FROM CI_INFOOBJECTS WHERE SI_ID = -1";
@@ -95,6 +98,9 @@ public class UniverseDebugModule {
     }
 
     private IProperties getProperties(IProperties properties, Object propertyName) {
+        if (properties == null) {
+            return null;
+        }
         if (properties.containsKey(propertyName)) {
             return properties.getProperties(propertyName);
         }
@@ -106,6 +112,15 @@ public class UniverseDebugModule {
         }
 
         return null;
+    }
+
+    private IProperties getSlUniverseConnectionsProperties(IProperties properties) {
+        IProperties connections = getProperties(properties, SL_UNIVERSE_CONNECTIONS_PROPERTY);
+        if (connections != null) {
+            return connections;
+        }
+
+        return getProperties(properties, SL_UNIVERSE_CONNECTIONS_PROPERTY_ID);
     }
 
     private boolean isPositiveInteger(String value) {

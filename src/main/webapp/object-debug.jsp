@@ -22,6 +22,9 @@
         </div>
         <div class="actions">
             <a class="button secondary" href="${pageContext.request.contextPath}/debug-tools.jsp">New Debug</a>
+            <% if (debugResult != null && debugResult.isFound()) { %>
+                <a class="button" href="${pageContext.request.contextPath}/debug/export">Export Excel</a>
+            <% } %>
             <a class="button" href="${pageContext.request.contextPath}/menu.jsp">Modules</a>
         </div>
     </section>

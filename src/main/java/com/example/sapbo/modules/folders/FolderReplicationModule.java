@@ -32,7 +32,10 @@ public class FolderReplicationModule {
         this.connectionManager = connectionManager;
     }
 
-    public List<FolderReplicationRecord> validate(String scope, String identifierType, String identifier,
+    public List<FolderReplicationRecord> validate(
+            String scope,
+            String identifierType,
+            String identifier,
             String destinationRootName) throws SDKException {
         IInfoStore infoStore = getInfoStore();
         List<FolderReplicationRecord> records = new ArrayList<>();
@@ -42,7 +45,8 @@ public class FolderReplicationModule {
         }
 
         FolderIndex folderIndex = loadFolders(infoStore);
-        IInfoObject publicRoot = folderIndex.findPublicRoot();
+        int publicRootId = resolvePublicRootFolderId(infoStore);
+        IInfoObject publicRoot = folderIndex.findById(publicRootId);
         if (publicRoot == null) {
             records.add(errorRecord("", "", destinationRootName, "Unable to find the public root folder."));
             return records;
@@ -61,19 +65,26 @@ public class FolderReplicationModule {
             sourceFolders = folderIndex.selfAndDescendants(sourceFolder.getID());
         }
 
-        Map<Integer, String> relativePaths = buildRelativePaths(folderIndex, publicRoot, sourceFolders);
+        Map<Integer, String> relativePaths = buildRelativePaths(folderIndex, publicRoot, sourceFolders, scope);
         for (IInfoObject sourceFolder : sourceFolders) {
             if (destinationRoot != null && folderIndex.isSameOrDescendant(sourceFolder.getID(), destinationRoot.getID())) {
                 continue;
             }
+
             String relativePath = relativePaths.get(sourceFolder.getID());
             if (isBlank(relativePath)) {
                 continue;
             }
+
             String destinationPath = destinationRootName.trim() + "/" + relativePath;
             boolean exists = destinationRoot != null && folderIndex.existsPath(destinationRoot.getID(), relativePath);
-            records.add(new FolderReplicationRecord(sourceFolder.getID(), sourceFolder.getCUID(), sourceFolder.getTitle(),
-                    folderIndex.path(sourceFolder.getID()), destinationRootName.trim(), destinationPath,
+            records.add(new FolderReplicationRecord(
+                    sourceFolder.getID(),
+                    sourceFolder.getCUID(),
+                    sourceFolder.getTitle(),
+                    folderIndex.path(sourceFolder.getID()),
+                    destinationRootName.trim(),
+                    destinationPath,
                     exists ? STATUS_EXISTS : STATUS_READY,
                     exists ? "Folder already exists in destination." : "Folder will be created if missing."));
         }
@@ -82,6 +93,7 @@ public class FolderReplicationModule {
         if (records.isEmpty()) {
             records.add(errorRecord(identifier, "", destinationRootName, "No source folders were found to replicate."));
         }
+
         return records;
     }
 
@@ -90,37 +102,61 @@ public class FolderReplicationModule {
         List<FolderReplicationRecord> results = new ArrayList<>();
         int publicRootId = resolvePublicRootFolderId(infoStore);
         Map<String, Integer> folderCache = new HashMap<>();
+
         for (FolderReplicationRecord record : validatedRecords) {
             if (STATUS_ERROR.equals(record.getStatus())) {
                 results.add(record);
                 continue;
             }
+
             int destinationRootId = ensureChildFolder(infoStore, publicRootId, record.getDestinationRootName());
-            ensureFolderHierarchy(infoStore, destinationRootId,
-                    removeDestinationRoot(record.getDestinationFolderPath(), record.getDestinationRootName()), folderCache);
-            results.add(new FolderReplicationRecord(record.getSourceFolderId(), record.getSourceFolderCuid(),
-                    record.getSourceFolderName(), record.getSourceFolderPath(), record.getDestinationRootName(),
-                    record.getDestinationFolderPath(), STATUS_EXISTS.equals(record.getStatus()) ? STATUS_EXISTS : "Created",
-                    STATUS_EXISTS.equals(record.getStatus()) ? "Verified existing destination folder."
+            ensureFolderHierarchy(
+                    infoStore,
+                    destinationRootId,
+                    removeDestinationRoot(record.getDestinationFolderPath(), record.getDestinationRootName()),
+                    folderCache);
+            results.add(new FolderReplicationRecord(
+                    record.getSourceFolderId(),
+                    record.getSourceFolderCuid(),
+                    record.getSourceFolderName(),
+                    record.getSourceFolderPath(),
+                    record.getDestinationRootName(),
+                    record.getDestinationFolderPath(),
+                    STATUS_EXISTS.equals(record.getStatus()) ? STATUS_EXISTS : "Created",
+                    STATUS_EXISTS.equals(record.getStatus())
+                            ? "Verified existing destination folder."
                             : "Created or verified destination folder hierarchy."));
         }
+
         return results;
     }
 
-    private Map<Integer, String> buildRelativePaths(FolderIndex folderIndex, IInfoObject publicRoot,
-            List<IInfoObject> sourceFolders) throws SDKException {
+    private Map<Integer, String> buildRelativePaths(
+            FolderIndex folderIndex,
+            IInfoObject publicRoot,
+            List<IInfoObject> sourceFolders,
+            String scope) throws SDKException {
         Map<Integer, String> paths = new HashMap<>();
-        String rootPath = folderIndex.path(publicRoot.getID());
         for (IInfoObject folder : sourceFolders) {
-            paths.put(folder.getID(), removePrefix(folderIndex.path(folder.getID()), rootPath));
+            String fullPath = folderIndex.path(folder.getID());
+            String rootPath = folderIndex.path(publicRoot.getID());
+            String relativePath = removePrefix(fullPath, rootPath);
+            if (SCOPE_SPECIFIC.equals(scope)) {
+                paths.put(folder.getID(), relativePath);
+            } else {
+                paths.put(folder.getID(), relativePath);
+            }
         }
+
         return paths;
     }
 
-    private IInfoObject findSourceFolder(IInfoStore infoStore, String identifierType, String identifier) throws SDKException {
+    private IInfoObject findSourceFolder(IInfoStore infoStore, String identifierType, String identifier)
+            throws SDKException {
         if (isBlank(identifier)) {
             return null;
         }
+
         String predicate;
         if (IDENTIFIER_CUID.equals(identifierType)) {
             predicate = "SI_CUID = '" + escapeCmsQueryValue(identifier.trim()) + "'";
@@ -129,50 +165,69 @@ public class FolderReplicationModule {
         } else {
             return null;
         }
-        IInfoObjects folders = infoStore.query("SELECT TOP 1 * FROM CI_INFOOBJECTS WHERE SI_KIND = 'Folder' AND " + predicate);
-        return folders.size() == 0 ? null : (IInfoObject) folders.get(0);
+
+        IInfoObjects folders = infoStore.query("SELECT TOP 1 * FROM CI_INFOOBJECTS "
+                + "WHERE SI_KIND = 'Folder' AND " + predicate);
+        if (folders.size() == 0) {
+            return null;
+        }
+
+        return (IInfoObject) folders.get(0);
     }
 
     private FolderIndex loadFolders(IInfoStore infoStore) throws SDKException {
-        return new FolderIndex(infoStore.query("SELECT TOP 100000 * FROM CI_INFOOBJECTS WHERE SI_KIND = 'Folder'"));
+        IInfoObjects folders = infoStore.query("SELECT TOP 100000 * FROM CI_INFOOBJECTS WHERE SI_KIND = 'Folder'");
+        return new FolderIndex(folders);
     }
 
     private int resolvePublicRootFolderId(IInfoStore infoStore) throws SDKException {
-        IInfoObjects roots = infoStore.query("SELECT TOP 10 SI_ID, SI_NAME, SI_PARENTID FROM CI_INFOOBJECTS WHERE SI_KIND = 'Folder' AND SI_PARENTID = 0");
+        int pluginRootId = infoStore.getPluginMgr().getPluginInfo("CrystalEnterprise.Folder").getRootFolderID();
+        if (pluginRootId > 0) {
+            return pluginRootId;
+        }
+
+        IInfoObjects roots = infoStore.query("SELECT TOP 10 SI_ID, SI_NAME, SI_PARENTID FROM CI_INFOOBJECTS "
+                + "WHERE SI_KIND = 'Folder' AND SI_PARENTID = 0");
         for (Object rootObject : roots) {
             IInfoObject root = (IInfoObject) rootObject;
-            if ("Root Folder".equalsIgnoreCase(root.getTitle())) {
+            if ("Root Folder".equalsIgnoreCase(root.getTitle())
+                    || "Public Folders".equalsIgnoreCase(root.getTitle())) {
                 return root.getID();
             }
         }
-        if (roots.size() > 0) {
-            return ((IInfoObject) roots.get(0)).getID();
-        }
-        throw new IllegalStateException("Unable to find the public root folder.");
+
+        throw new IllegalStateException("Unable to find the Public Folders root. Folder creation was stopped to avoid using Favorites.");
     }
 
-    private int ensureFolderHierarchy(IInfoStore infoStore, int destinationRootId, String relativePath,
+    private int ensureFolderHierarchy(
+            IInfoStore infoStore,
+            int destinationRootId,
+            String relativePath,
             Map<String, Integer> folderCache) throws SDKException {
         int parentId = destinationRootId;
         String normalizedPath = normalizePath(relativePath);
         if (normalizedPath.isEmpty()) {
             return parentId;
         }
+
         String cachePath = "";
         for (String part : normalizedPath.split("/")) {
             String folderName = part.trim();
             if (folderName.isEmpty()) {
                 continue;
             }
+
             cachePath = cachePath.isEmpty() ? folderName : cachePath + "/" + folderName;
             String cacheKey = parentId + "|" + cachePath.toLowerCase(Locale.ENGLISH);
             if (folderCache.containsKey(cacheKey)) {
                 parentId = folderCache.get(cacheKey);
                 continue;
             }
+
             parentId = ensureChildFolder(infoStore, parentId, folderName);
             folderCache.put(cacheKey, parentId);
         }
+
         return parentId;
     }
 
@@ -181,6 +236,7 @@ public class FolderReplicationModule {
         if (existingFolder != null) {
             return existingFolder.getID();
         }
+
         IInfoObjects newFolders = infoStore.newInfoObjectCollection();
         IInfoObject folder = newFolders.add("CrystalEnterprise.Folder");
         folder.setTitle(folderName);
@@ -191,9 +247,13 @@ public class FolderReplicationModule {
 
     private IInfoObject findChildFolder(IInfoStore infoStore, int parentId, String folderName) throws SDKException {
         IInfoObjects folders = infoStore.query("SELECT TOP 1 SI_ID, SI_NAME, SI_PARENTID FROM CI_INFOOBJECTS "
-                + "WHERE SI_KIND = 'Folder' AND SI_PARENTID = " + parentId + " AND SI_NAME = '"
-                + escapeCmsQueryValue(folderName) + "'");
-        return folders.size() == 0 ? null : (IInfoObject) folders.get(0);
+                + "WHERE SI_KIND = 'Folder' AND SI_PARENTID = " + parentId
+                + " AND SI_NAME = '" + escapeCmsQueryValue(folderName) + "'");
+        if (folders.size() == 0) {
+            return null;
+        }
+
+        return (IInfoObject) folders.get(0);
     }
 
     private String removeDestinationRoot(String destinationFolderPath, String destinationRootName) {
@@ -205,6 +265,7 @@ public class FolderReplicationModule {
         if (normalizedPath.startsWith(normalizedRootName + "/")) {
             return normalizedPath.substring(normalizedRootName.length() + 1);
         }
+
         return normalizedPath;
     }
 
@@ -217,6 +278,7 @@ public class FolderReplicationModule {
         if (!normalizedPrefix.isEmpty() && normalizedValue.startsWith(normalizedPrefix + "/")) {
             return normalizedValue.substring(normalizedPrefix.length() + 1);
         }
+
         return normalizedValue;
     }
 
@@ -231,13 +293,24 @@ public class FolderReplicationModule {
         while (normalizedPath.endsWith("/")) {
             normalizedPath = normalizedPath.substring(0, normalizedPath.length() - 1);
         }
+
         return normalizedPath;
     }
 
-    private FolderReplicationRecord errorRecord(String identifier, String sourceFolderPath, String destinationRootName,
+    private FolderReplicationRecord errorRecord(
+            String identifier,
+            String sourceFolderPath,
+            String destinationRootName,
             String message) {
-        return new FolderReplicationRecord(0, "", identifier, sourceFolderPath,
-                destinationRootName == null ? "" : destinationRootName, "", STATUS_ERROR, message);
+        return new FolderReplicationRecord(
+                0,
+                "",
+                identifier,
+                sourceFolderPath,
+                destinationRootName == null ? "" : destinationRootName,
+                "",
+                STATUS_ERROR,
+                message);
     }
 
     private IInfoStore getInfoStore() throws SDKException {
@@ -263,6 +336,7 @@ public class FolderReplicationModule {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -282,17 +356,8 @@ public class FolderReplicationModule {
             }
         }
 
-        private IInfoObject findPublicRoot() throws SDKException {
-            List<IInfoObject> roots = childrenByParentId.get(0);
-            if (roots == null || roots.isEmpty()) {
-                return null;
-            }
-            for (IInfoObject root : roots) {
-                if ("Root Folder".equalsIgnoreCase(root.getTitle())) {
-                    return root;
-                }
-            }
-            return roots.get(0);
+        private IInfoObject findById(int folderId) {
+            return byId.get(folderId);
         }
 
         private IInfoObject findChild(int parentId, String childName) throws SDKException {
@@ -305,6 +370,7 @@ public class FolderReplicationModule {
                     return child;
                 }
             }
+
             return null;
         }
 
@@ -314,6 +380,7 @@ public class FolderReplicationModule {
             if (normalizedPath.isEmpty()) {
                 return true;
             }
+
             for (String part : normalizedPath.split("/")) {
                 if (part.trim().isEmpty()) {
                     continue;
@@ -324,6 +391,7 @@ public class FolderReplicationModule {
                 }
                 parentId = child.getID();
             }
+
             return true;
         }
 
@@ -340,6 +408,7 @@ public class FolderReplicationModule {
                 folders.add(folder);
                 addDescendants(folderId, folders);
             }
+
             return folders;
         }
 
@@ -367,6 +436,7 @@ public class FolderReplicationModule {
                 pathCache.put(folderId, "");
                 return "";
             }
+
             String parentPath = path(folder.getParentID());
             String folderPath = parentPath.isEmpty() ? folder.getTitle() : parentPath + "/" + folder.getTitle();
             pathCache.put(folderId, folderPath);
@@ -385,6 +455,7 @@ public class FolderReplicationModule {
                 }
                 currentId = folder.getParentID();
             }
+
             return false;
         }
     }

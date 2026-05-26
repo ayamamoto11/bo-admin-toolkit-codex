@@ -190,13 +190,31 @@ public class FolderReplicationModule {
                 + "WHERE SI_KIND = 'Folder' AND SI_PARENTID = 0");
         for (Object rootObject : roots) {
             IInfoObject root = (IInfoObject) rootObject;
-            if ("Root Folder".equalsIgnoreCase(root.getTitle())
-                    || "Public Folders".equalsIgnoreCase(root.getTitle())) {
+            if (isPublicFolderRootName(root.getTitle())) {
+                return root.getID();
+            }
+        }
+
+        IInfoObjects namedPublicRoots = infoStore.query("SELECT TOP 100 SI_ID, SI_NAME, SI_PARENTID FROM CI_INFOOBJECTS "
+                + "WHERE SI_KIND = 'Folder' AND (SI_NAME LIKE 'Root Folder%' OR SI_NAME = 'Public Folders')");
+        for (Object rootObject : namedPublicRoots) {
+            IInfoObject root = (IInfoObject) rootObject;
+            if (isPublicFolderRootName(root.getTitle())) {
                 return root.getID();
             }
         }
 
         throw new IllegalStateException("Unable to find the Public Folders root. Folder creation was stopped to avoid using Favorites.");
+    }
+
+    private boolean isPublicFolderRootName(String folderName) {
+        if (folderName == null) {
+            return false;
+        }
+        String normalizedName = folderName.trim().toLowerCase(Locale.ENGLISH);
+        return "root folder".equals(normalizedName)
+                || normalizedName.startsWith("root folder ")
+                || "public folders".equals(normalizedName);
     }
 
     private int ensureFolderHierarchy(
